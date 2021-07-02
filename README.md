@@ -23,13 +23,13 @@ To get an overview of the code, we recommend having a look at the header file ``
 // These are the four struct types that contain all GIF data and parameters:
 typedef GIFConfig               // global cofinguration parameters of the GIF
 typedef FrameConfig             // local configuration parameters for a frame
-typedef GIF                     // struct for the full GIF
-typedef Frame                   // struct for a single frame
+typedef GIF                    // struct for the full GIF
+typedef Frame                  // struct for a single frame
 
 // The user needs only these three functions to create a GIF image:
 GIF* cgif_newgif    (GIFConfig* pConfig);               // creates a new GIF
 int  cgif_addframe  (GIF* pGIF, FrameConfig* pConfig);  // adds a frame to an existing GIF
-int  cgif_close     (GIF* pGIF);                        // close the created file and free memory
+int  cgif_close     (GIF* pGIF);                      // close the created file and free memory
 ```
 
 With our encoder you can create animated or static GIFs, you can or cannot use certain optimizations, and so on. You can switch between all these different options easily using the two attributes ```attrFlags``` and ```genFlags``` in the configurations ```GIFConfig``` and ```FrameConfig```. These attributes are of type ```uint32_t``` and bundle yes/no-options with a bit-wise logic. So far only a few of the 32 bits are used leaving space to include further functionalities ensuring backward compatibility. We provide the following flag settings which can be combined by bit-wise or-operations:
@@ -40,7 +40,7 @@ FRAME_ATTR_USE_LOCAL_TABLE    // use a local color table for a frame (not used b
 FRAME_GEN_USE_TRANSPARENCY    // use transparency optimization (size optimization)
 FRAME_GEN_USE_DIFF_WINDOW     // do encoding just for the sub-window that has changed from the previous frame
 ```
-If you didn't understand the point of ```attrFlags``` and ```genFlags``` and the flags, please don't worry. The example files [cgif_example.c] and [cgif_example_video.c] are all you need to get started and the used default settings for ```attrFlags``` and ```genFlags``` cover most cases quite well.
+If you didn't understand the point of ```attrFlags``` and ```genFlags``` and the flags, please don't worry. The example files ```cgif_example.c``` and ```cgif_example_video.c``` are all you need to get started and the used default settings for ```attrFlags``` and ```genFlags``` cover most cases quite well.
 
 ## Compiling the example
 An example can be compiled and tested simply by:
@@ -58,5 +58,5 @@ With the provided tests you can validate that the encoder still generates correc
 The GIF format employs the [Lev-Zimpel-Welch (LZW)](https://en.wikipedia.org/wiki/Lempel%E2%80%93Ziv%E2%80%93Welch) algorithm for image compression. If you are interested in details of the GIF format, please have a look at the official GIF documentation (https://www.w3.org/Graphics/GIF/spec-gif89a.txt).
 
 ## License
-Licensed under the MIT license (permissive)
-For more details please see [LICENSE]
+Licensed under the MIT license (permissive).
+For more details please see ```LICENSE```
