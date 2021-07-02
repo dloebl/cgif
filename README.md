@@ -38,20 +38,20 @@ GIF_ATTR_IS_ANIMATED          // make an animated GIF (default is non-animated G
 GIF_ATTR_NO_GLOBAL_TABLE      // disable global color table (global color table is default)
 FRAME_ATTR_USE_LOCAL_TABLE    // use a local color table for a frame (not used by default)
 FRAME_GEN_USE_TRANSPARENCY    // use transparency optimization (size optimization)
-FRAME_GEN_USE_DIFF_WINDOW     // do encoding just for the sub-window that has changed from the previous frame
+FRAME_GEN_USE_DIFF_WINDOW     // do encoding just for the sub-window that changed (size optimization)
 ```
 If you didn't understand the point of ```attrFlags``` and ```genFlags``` and the flags, please don't worry. The example files ```cgif_example.c``` and ```cgif_example_video.c``` are all you need to get started and the used default settings for ```attrFlags``` and ```genFlags``` cover most cases quite well.
 
 ## Compiling the example
 An example can be compiled and tested simply by:
 ```
-$ cc -o cgif_example cgif_example_video.c cgif.c
+$ c99 -o cgif_example cgif_example_video.c cgif.c
 $ ./cgif_example
 
 ```
 
 ## Validating the encoder
-In the folder ```/tests```, we provide several testing routines that you can be run via the script ```performtests.sh```. To perform the tests you need to install the programs [ImageMagick](https://github.com/ImageMagick/ImageMagick), [gifsicle](https://github.com/kohler/gifsicle) and [tcc (tiny c compiler)](https://bellard.org/tcc/). 
+In the folder ```tests```, we provide several testing routines that you can be run via the script ```performtests.sh```. To perform the tests you need to install the programs [ImageMagick](https://github.com/ImageMagick/ImageMagick), [gifsicle](https://github.com/kohler/gifsicle) and [tcc (tiny c compiler)](https://bellard.org/tcc/). 
 With the provided tests you can validate that the encoder still generates correct GIF files after making changes on the encoder itself.
 
 ## Further explanations
