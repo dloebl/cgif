@@ -40,12 +40,12 @@
 #define BLOCK_SIZE      0xFF                  // number of bytes in one block of the image data
 
 typedef struct {
-  uint16_t*       pTree;   // complete LZW tree in one block
-  uint16_t*       pLZWData;
-  const uint8_t*  pImageData;
-  uint32_t        numPixel;
-  uint32_t        LZWPos;
-  uint16_t        dictPos; // we need to store 0-4096, so there are atleast 13 bits needed here
+  uint16_t*       pTree;      // complete LZW dictionary tree in one block
+  uint16_t*       pLZWData;   // pointer to LZW data
+  const uint8_t*  pImageData; // pointer to image data
+  uint32_t        numPixel;   // number of pixels per frame
+  uint32_t        LZWPos;     // position of the current LZW code
+  uint16_t        dictPos;    // currrent position in dictionary, we need to store 0-4096 -- so there are at least 13 bits needed here
 } LZWGenState;
 
 /* create new node in the tree that represents the dictionary of LZW-codes */
@@ -84,35 +84,34 @@ static uint8_t calcInitCodeLen(uint16_t numEntries) {
   return 3;
 }
 
-/* find next LZW-code*/
+/* find next LZW code representing the longest pixel sequence that is still in the dictionary*/
 static uint32_t lzw_crawl_tree(LZWGenState* pContext, uint32_t strPos, uint16_t parentIndex, const uint16_t initDictLen) {
   uint16_t nextPixel, i;
 
   while(strPos < (pContext->numPixel - 1)) {
-    if((pContext->pTree[parentIndex * initDictLen + pContext->pImageData[strPos + 1]]) != 0) { // if pixel-sequence is still in lzw-dictionary
-      nextPixel   = pContext->pImageData[strPos + 1];
-      parentIndex = pContext->pTree[parentIndex * initDictLen + nextPixel];
+    if((pContext->pTree[parentIndex * initDictLen + pContext->pImageData[strPos + 1]]) != 0) { // if pixel sequence is still in LZW-dictionary
+      nextPixel   = pContext->pImageData[strPos + 1];                                          // get color index of next pixel in image data
+      parentIndex = pContext->pTree[parentIndex * initDictLen + nextPixel];                    // the color index determines branch in the dictionary tree
       ++strPos;
-    } else {
-      pContext->pLZWData[pContext->LZWPos] = parentIndex; // write lzw-data
-      ++(pContext->LZWPos);
-      if(pContext->dictPos < MAX_DICT_LEN) { // if lzw-dictionary is not full yet
-        add_child(pContext->pTree, parentIndex, pContext->dictPos, initDictLen, pContext->pImageData[strPos + 1]); // add new lzw-entry to dictionary
-        ++(pContext->dictPos);
+    } else {                                                                                                       // if pixel sequence is not yet in the dictionary
+      pContext->pLZWData[pContext->LZWPos] = parentIndex;                                                          // write last LZW code in LZW data
+      ++(pContext->LZWPos);                                                                                        // increment position in LZW data
+      if(pContext->dictPos < MAX_DICT_LEN) {                                                                       // if LZW-dictionary is not full yet
+        add_child(pContext->pTree, parentIndex, pContext->dictPos, initDictLen, pContext->pImageData[strPos + 1]); // add new LZW code to dictionary
+        ++(pContext->dictPos);                                                                                     // increase current position in the dictionary
       } else {
-        // the dictionary reached its maximum code => reset it
-        pContext->dictPos                    = initDictLen + 2;
-        pContext->pLZWData[pContext->LZWPos] = initDictLen;     // issue clear-code
-        ++(pContext->LZWPos);
+        // the dictionary reached its maximum code => reset it (not required by GIF-standard but mostly done like this)
+        pContext->dictPos                    = initDictLen + 2;                           // reset current position in dictionary (number of colors + 2 for start and end code)
+        pContext->pLZWData[pContext->LZWPos] = initDictLen;                               // issue clear-code
+        ++(pContext->LZWPos);                                                             // increment position in LZW data
         for(i = 0; i < initDictLen; ++i) {
-          memset(&(pContext->pTree[i * initDictLen]), 0, initDictLen * sizeof(uint16_t));
+          memset(&(pContext->pTree[i * initDictLen]), 0, initDictLen * sizeof(uint16_t)); // reset all egdes of root nodes of the LZW dictionary tree
         }
       }
       return strPos + 1;
     }
   }
-  // if the end of the image is reached
-  pContext->pLZWData[pContext->LZWPos] = parentIndex; // write lzw-data
+  pContext->pLZWData[pContext->LZWPos] = parentIndex;                                     // if the end of the image is reached, write last LZW code
   ++(pContext->LZWPos);
   return strPos + 1;
 }
@@ -122,76 +121,68 @@ static uint32_t lzw_generate(Frame* pFrame, LZWGenState* pContext) {
   uint8_t  parentIndex;
   uint32_t strPos;
 
-  strPos                = 0;
-  pContext->LZWPos      = 1 ;
-  pContext->pLZWData[0] = pFrame->initDictLen; // issue clear-code at first
-  while(strPos < pContext->numPixel) {
-    parentIndex  = pContext->pImageData[strPos];
-    strPos       = lzw_crawl_tree(pContext, strPos, parentIndex, pFrame->initDictLen);
+  strPos                = 0;                                                           // start at beginning of the image data
+  pContext->LZWPos      = 1 ;                                                          // start at position 1 as 0 is reserved for the clear-code
+  pContext->pLZWData[0] = pFrame->initDictLen;                                         // issue clear-code at first
+  while(strPos < pContext->numPixel) {                                                 // while there are still image data to be encoded
+    parentIndex  = pContext->pImageData[strPos];                                       // start at root node
+    strPos       = lzw_crawl_tree(pContext, strPos, parentIndex, pFrame->initDictLen); // get longest sequence that is still in dictionary, return new position in image data
   }
-  pContext->pLZWData[pContext->LZWPos] = pFrame->initDictLen + 1; // stop code
-  return pContext->LZWPos + 1; // return number of elements of lzwStr
+  pContext->pLZWData[pContext->LZWPos] = pFrame->initDictLen + 1;                      // termination code
+  return pContext->LZWPos + 1;                                                         // return number of elements of LZW data
 }
 
-/* pack the LZW-codes into a byte sequence*/
+/* pack the LZW data into a byte sequence*/
 static uint32_t create_byte_list(Frame* pFrame, uint8_t *byteList, uint32_t lzwPos, uint16_t *lzwStr){
   uint32_t i;
-  uint32_t dictPos;
-  uint16_t n             = 2 * pFrame->initDictLen;
-  uint32_t bytePos       = 0;
-  uint8_t  bitOffset     = 0;
-  uint8_t  lzwCodeLen    = pFrame->initCodeLen;
-  int      correctLater;
+  uint32_t dictPos;                                                             // counting new LZW codes
+  uint16_t n             = 2 * pFrame->initDictLen;                             // if n - pFrame->initDictLen == dictPos, the LZW code size is incremented by 1 bit
+  uint32_t bytePos       = 0;                                                   // position of current byte
+  uint8_t  bitOffset     = 0;                                                   // number of bits used in the last byte
+  uint8_t  lzwCodeLen    = pFrame->initCodeLen;                                 // dynamically increasing length of the LZW codes
+  int      correctLater  = 0;                                                   // 1: one empty byte too much if end is reached after current code, 0 otherwise
 
-  correctLater = 0;
   byteList[0] = 0; // except from the 1st byte all other bytes should be initialized stepwise (below)
-  // the very first symbol might be the clear-code.
-  // however this is not mandatory. Quote:
+  // the very first symbol might be the clear-code. However, this is not mandatory. Quote:
   // "Encoders should output a Clear code as the first code of each image data stream."
-  // to stay compatible, we keep the option to NOT output the clear code as the first symbol in this function.
+  // We keep the option to NOT output the clear code as the first symbol in this function.
   dictPos     = 1;
-  for(i = 0; i < lzwPos; ++i) {
-    if((lzwCodeLen < MAX_CODE_LEN) && (n - (pFrame->initDictLen) == dictPos)) { // when larger code can be used for the 1st time at i = 256 ...+ 512 ...+ 1024 -> 256, 768, 1792
-      ++lzwCodeLen;
-      n *= 2;
+  for(i = 0; i < lzwPos; ++i) {                                                 // loop over all LZW codes
+    if((lzwCodeLen < MAX_CODE_LEN) && (n - (pFrame->initDictLen) == dictPos)) { // larger code is used for the 1st time at i = 256 ...+ 512 ...+ 1024 -> 256, 768, 1792
+      ++lzwCodeLen;                                                             // increment the length of the LZW codes (bit units)
+      n *= 2;                                                                   // set threshold for next increment of LZW code size
     }
-    correctLater       = 0;
-    byteList[bytePos] |= ((uint8_t)(lzwStr[i] << bitOffset));
-    if(lzwCodeLen + bitOffset >= 8){
-      if(lzwCodeLen + bitOffset == 8){ // if just this byte is filled completely
-        byteList[++bytePos] = 0; // byte is full -- go to next byte and initialize as 0 (correct later if one 0byte to much at end)
-        correctLater        = 1;
-      }else if(lzwCodeLen + bitOffset < 16){ // if the next byte is not completely filled
+    correctLater       = 0;                                                     // 1 indicates that one empty byte is too much at the end
+    byteList[bytePos] |= ((uint8_t)(lzwStr[i] << bitOffset));                   // add 1st bits of the new LZW code to the byte containing part of the previous code
+    if(lzwCodeLen + bitOffset >= 8) {                                           // if the current byte is not enough of the LZW code
+      if(lzwCodeLen + bitOffset == 8) {                                         // if just this byte is filled exactly
+        byteList[++bytePos] = 0;                                                // byte is full -- go to next byte and initialize as 0
+        correctLater        = 1;                                                // use if one 0byte to much at the end
+      } else if(lzwCodeLen + bitOffset < 16) {                                  // if the next byte is not completely filled
         byteList[++bytePos] = (uint8_t)(lzwStr[i] >> (8-bitOffset));
-      }else if(lzwCodeLen + bitOffset == 16){
+      } else if(lzwCodeLen + bitOffset == 16) {                                 // if the next byte is exactly filled by LZW code
         byteList[++bytePos] = (uint8_t)(lzwStr[i] >> (8-bitOffset));
-        byteList[++bytePos] = 0; // byte is full -- go to next byte and initialize as 0 (correct later if one 0byte to much at end)
-        correctLater        = 1;
-      }else{ // lzw-code ranges over 3 byte in total
-        byteList[++bytePos] = (uint8_t)(lzwStr[i] >> (8-bitOffset));
-        byteList[++bytePos] = (uint8_t)(lzwStr[i] >> (16-bitOffset));
+        byteList[++bytePos] = 0;                                                // byte is full -- go to next byte and initialize as 0
+        correctLater        = 1;                                                // use if one 0byte to much at the end
+      } else {                                                                  // lzw-code ranges over 3 bytes in total
+        byteList[++bytePos] = (uint8_t)(lzwStr[i] >> (8-bitOffset));            // write part of LZW code to next byte
+        byteList[++bytePos] = (uint8_t)(lzwStr[i] >> (16-bitOffset));           // write part of LZW code to byte after next byte
       }
     }
-    bitOffset = (lzwCodeLen + bitOffset) % 8;
-    ++dictPos;
-    if(lzwStr[i] == pFrame->initDictLen) {
-      lzwCodeLen = pFrame->initCodeLen;
-      n          = 2 * pFrame->initDictLen;
-      // take first code already into account,
-      // as we need to switch to the next lzwCodeLen
-      // once we reach the point where the current length
-      // cannot represent the current maximum symbol.
-      // Note: This is usually done implicitly, as the very first
-      // symbol is a clear-code itself.
-      dictPos = 1;
+    bitOffset = (lzwCodeLen + bitOffset) % 8;                                   // how many bits of the last byte are used?
+    ++dictPos;                                                                  // increment count of LZW codes
+    if(lzwStr[i] == pFrame->initDictLen) {                                      // if a clear code appears in the LZW data
+      lzwCodeLen = pFrame->initCodeLen;                                         // reset length of LZW codes
+      n          = 2 * pFrame->initDictLen;                                     // reset threshold for next increment of LZW code length
+      dictPos = 1;                                                              // reset (see comment below)
+      // take first code already into account to increment lzwCodeLen exactly when the code length cannot represent the current maximum symbol.
+      // Note: This is usually done implicitly, as the very first symbol is a clear-code itself.
     }
   }
-  // if we added one byte to much at end, remove it now.
-  // the last LZW byte can be zero under the following circumstance:
-  // - terminate code has been written (initial dict length + 1), but current code size is larger so
-  //   we added padding zero bits. In some cases these padding bits can wrap into the next byte(s).
-  if(correctLater) {
-    --bytePos;
+  // comment: the last byte can be zero in the following case only:
+  // terminate code has been written (initial dict length + 1), but current code size is larger so padding zero bits were added and extend into the next byte(s).
+  if(correctLater) {                                                            // if an unneccessaray empty 0-byte was initialized at the end
+    --bytePos;                                                                  // don't consider the last empty byte
   }
   return bytePos;
 }
@@ -199,23 +190,22 @@ static uint32_t create_byte_list(Frame* pFrame, uint8_t *byteList, uint32_t lzwP
 /* put byte sequence in blocks as required by GIF-format */
 static uint32_t create_byte_list_block(uint8_t *byteList, uint8_t *byteListBlock, const uint32_t numBytes) {
   uint32_t i;
-  uint32_t numBlock = numBytes / BLOCK_SIZE;
-  uint8_t  numRest  = numBytes % BLOCK_SIZE;
+  uint32_t numBlock = numBytes / BLOCK_SIZE;                                                    // number of byte blocks with length BLOCK_SIZE
+  uint8_t  numRest  = numBytes % BLOCK_SIZE;                                                    // number of bytes in last block (if not completely full)
 
-  for(i = 0; i < numBlock; ++i){
-    byteListBlock[i * (BLOCK_SIZE+1)] = BLOCK_SIZE; // number of bytes in the following block
-    memcpy(byteListBlock + 1+i*(BLOCK_SIZE+1), byteList + i*BLOCK_SIZE, BLOCK_SIZE);
+  for(i = 0; i < numBlock; ++i) {                                                               // loop over all blocks
+    byteListBlock[i * (BLOCK_SIZE+1)] = BLOCK_SIZE;                                             // number of bytes in the following block
+    memcpy(byteListBlock + 1+i*(BLOCK_SIZE+1), byteList + i*BLOCK_SIZE, BLOCK_SIZE);            // copy block from byteList to byteListBlock
   }
-  if(numRest>0){
-    byteListBlock[numBlock*(BLOCK_SIZE+1)] = numRest; // number of bytes in the following block
-    memcpy(byteListBlock + 1+numBlock*(BLOCK_SIZE+1), byteList + numBlock*BLOCK_SIZE, numRest);
-    byteListBlock[1 + numBlock * (BLOCK_SIZE + 1) + numRest] = 0; // set 0 at end of frame
-    return 1 + numBlock * (BLOCK_SIZE + 1) + numRest; // index of last entry in byteListBlock
+  if(numRest>0) {
+    byteListBlock[numBlock*(BLOCK_SIZE+1)] = numRest;                                           // number of bytes in the following block
+    memcpy(byteListBlock + 1+numBlock*(BLOCK_SIZE+1), byteList + numBlock*BLOCK_SIZE, numRest); // copy block from byteList to byteListBlock
+    byteListBlock[1 + numBlock * (BLOCK_SIZE + 1) + numRest] = 0;                               // set 0 at end of frame
+    return 1 + numBlock * (BLOCK_SIZE + 1) + numRest;                                           // index of last entry in byteListBlock
   }
-  // all LZW blocks in the frame have the same block size (255), so there are no remaining bytes
-  // to be writen.
-  byteListBlock[numBlock *(BLOCK_SIZE + 1)] = 0; // set 0 at end of frame
-  return numBlock *(BLOCK_SIZE + 1);             // index of last entry in byteListBlock
+  // all LZW blocks in the frame have the same block size (BLOCK_SIZE), so there are no remaining bytes to be writen.
+  byteListBlock[numBlock *(BLOCK_SIZE + 1)] = 0;                                                // set 0 at end of frame
+  return numBlock *(BLOCK_SIZE + 1);                                                            // index of last entry in byteListBlock
 }
 
 /* create all LZW raster data in GIF-format */
