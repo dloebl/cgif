@@ -22,13 +22,13 @@ To get an overview of the code, we recommend having a look at the header file ``
 // These are the four struct types that contain all GIF data and parameters:
 typedef GIFConfig               // global cofinguration parameters of the GIF
 typedef FrameConfig             // local configuration parameters for a frame
-typedef GIF                     // struct for the full GIF
-typedef Frame                   // struct for a single frame
+typedef GIF                    // struct for the full GIF
+typedef Frame                  // struct for a single frame
 
 // The user needs only these three functions to create a GIF image:
 GIF* cgif_newgif    (GIFConfig* pConfig);               // creates a new GIF
 int  cgif_addframe  (GIF* pGIF, FrameConfig* pConfig);  // adds a frame to an existing GIF
-int  cgif_close     (GIF* pGIF);                        // close the created file and free memory
+int  cgif_close     (GIF* pGIF);                      // close the created file and free memory
 ```
 
 With our encoder you can create animated or static GIFs, you can or cannot use certain optimizations, and so on. You can switch between all these different options easily using the two attributes ```attrFlags``` and ```genFlags``` in the configurations ```GIFConfig``` and ```FrameConfig```. These attributes are of type ```uint32_t``` and bundle yes/no-options with a bit-wise logic. So far only a few of the 32 bits are used leaving space to include further functionalities ensuring backward compatibility. We provide the following flag settings which can be combined by bit-wise or-operations:
