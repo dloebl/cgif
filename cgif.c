@@ -84,9 +84,21 @@ static uint8_t calcInitCodeLen(uint16_t numEntries) {
   return 3;
 }
 
+/* reset the dictionary of known LZW codes -- will reset the current code length as well */
+static void resetDict(LZWGenState* pContext, const uint16_t initDictLen) {
+  uint16_t i;
+
+  pContext->dictPos                    = initDictLen + 2;                           // reset current position in dictionary (number of colors + 2 for start and end code)
+  pContext->pLZWData[pContext->LZWPos] = initDictLen;                               // issue clear-code
+  ++(pContext->LZWPos);                                                             // increment position in LZW data
+  for(i = 0; i < initDictLen; ++i) {
+    memset(&(pContext->pTree[i * initDictLen]), 0, initDictLen * sizeof(uint16_t)); // reset all egdes of root nodes of the LZW dictionary tree
+  }
+}
+
 /* find next LZW code representing the longest pixel sequence that is still in the dictionary*/
 static uint32_t lzw_crawl_tree(LZWGenState* pContext, uint32_t strPos, uint16_t parentIndex, const uint16_t initDictLen) {
-  uint16_t nextPixel, i;
+  uint16_t nextPixel;
 
   while(strPos < (pContext->numPixel - 1)) {
     if((pContext->pTree[parentIndex * initDictLen + pContext->pImageData[strPos + 1]]) != 0) { // if pixel sequence is still in LZW-dictionary
@@ -101,12 +113,7 @@ static uint32_t lzw_crawl_tree(LZWGenState* pContext, uint32_t strPos, uint16_t 
         ++(pContext->dictPos);                                                                                     // increase current position in the dictionary
       } else {
         // the dictionary reached its maximum code => reset it (not required by GIF-standard but mostly done like this)
-        pContext->dictPos                    = initDictLen + 2;                           // reset current position in dictionary (number of colors + 2 for start and end code)
-        pContext->pLZWData[pContext->LZWPos] = initDictLen;                               // issue clear-code
-        ++(pContext->LZWPos);                                                             // increment position in LZW data
-        for(i = 0; i < initDictLen; ++i) {
-          memset(&(pContext->pTree[i * initDictLen]), 0, initDictLen * sizeof(uint16_t)); // reset all egdes of root nodes of the LZW dictionary tree
-        }
+        resetDict(pContext, initDictLen);
       }
       return strPos + 1;
     }
@@ -118,12 +125,11 @@ static uint32_t lzw_crawl_tree(LZWGenState* pContext, uint32_t strPos, uint16_t 
 
 /* generate LZW-codes that compress the image data*/
 static uint32_t lzw_generate(Frame* pFrame, LZWGenState* pContext) {
-  uint8_t  parentIndex;
   uint32_t strPos;
+  uint8_t  parentIndex;
 
-  strPos                = 0;                                                           // start at beginning of the image data
-  pContext->LZWPos      = 1 ;                                                          // start at position 1 as 0 is reserved for the clear-code
-  pContext->pLZWData[0] = pFrame->initDictLen;                                         // issue clear-code at first
+  strPos = 0;                                                                          // start at beginning of the image data
+  resetDict(pContext, pFrame->initDictLen);                                            // reset dictionary and issue clear-code at first
   while(strPos < pContext->numPixel) {                                                 // while there are still image data to be encoded
     parentIndex  = pContext->pImageData[strPos];                                       // start at root node
     strPos       = lzw_crawl_tree(pContext, strPos, parentIndex, pFrame->initDictLen); // get longest sequence that is still in dictionary, return new position in image data
@@ -211,7 +217,6 @@ static uint32_t create_byte_list_block(uint8_t *byteList, uint8_t *byteListBlock
 /* create all LZW raster data in GIF-format */
 static uint8_t* LZW_GenerateStream(Frame* pFrame, const uint32_t numPixel, const uint8_t* pImageData){
   LZWGenState* pContext;
-  uint16_t     i;
   uint32_t     lzwPos, bytePos;
   uint32_t     bytePosBlock;
 
@@ -220,12 +225,7 @@ static uint8_t* LZW_GenerateStream(Frame* pFrame, const uint32_t numPixel, const
   pContext->numPixel   = numPixel;
   pContext->pImageData = pImageData;
   pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2)); // TBD check return value of malloc
-
-  // initialize the dictionary with the base symbols: e.g. 0 - to max. 255
-  pContext->dictPos = pFrame->initDictLen + 2; // two elements are reserved for clear- and terminate code
-  for(i = 0; i < pFrame->initDictLen; ++i) {
-    memset(&(pContext->pTree[i * pFrame->initDictLen]), 0, pFrame->initDictLen * sizeof(uint16_t));
-  }
+  pContext->LZWPos     = 0;
 
   // actually generate the LZW sequence.
   lzwPos  = lzw_generate(pFrame, pContext);
@@ -594,4 +594,3 @@ int cgif_close(GIF* pGIF) {
   free(pGIF);
   return 0;
 }
-
