@@ -461,17 +461,25 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   memcpy(&(pFrame->config), pConfig, sizeof(FrameConfig));
   imageWidth    = HEADER_WIDTH(pGIF->aHeader);
   imageHeight   = HEADER_HEIGHT(pGIF->aHeader);
-  useLocalTable = 0;
-  isFirstFrame = ((&pGIF->firstFrame == pGIF->pCurFrame)) ? 1 : 0;
 
-  // set Image header to a clean state
+  // determine fixed attributes of frame
+  isFirstFrame  = ((&pGIF->firstFrame == pGIF->pCurFrame))                ? 1 : 0;
+  useLocalTable = (pFrame->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
+  // deactivate impossible size optimizations 
+  //  => in case the current frame or the frame before use a local-color table
+  // FRAME_GEN_USE_TRANSPARENCY and FRAME_GEN_USE_DIFF_WINDOW are not possible
+  if(isFirstFrame || useLocalTable || (!isFirstFrame && (pFrame->pBef->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE))) {
+    pFrame->config.genFlags &= ~(FRAME_GEN_USE_TRANSPARENCY | FRAME_GEN_USE_DIFF_WINDOW);
+  }
+
+  // set Frame header to a clean state
   memset(pFrame->aImageHeader, 0, sizeof(pFrame->aImageHeader));
 
   // calculate initial code length and initial dict length
-  pFrame->initCodeLen = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
-  if(pConfig->attrFlags & FRAME_ATTR_USE_LOCAL_TABLE) {
+  if(useLocalTable) {
     pFrame->initCodeLen = calcInitCodeLen(pFrame->config.numLocalPaletteEntries);
-    useLocalTable = 1;
+  } else {
+    pFrame->initCodeLen = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
   }
   pFrame->initDictLen = 1uL << (pFrame->initCodeLen - 1);
 
@@ -483,13 +491,9 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
     IMAGE_PACKED_FIELD(pFrame->aImageHeader) |= ((pFrame->initCodeLen - 2) << 0); // set size of local color table
   }
 
-  // remove impossible gen flags
-  if(useLocalTable || (!isFirstFrame && (pFrame->pBef->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE))) {
-    pConfig->genFlags = 0; // TBD
-  }
   // check if we need to increase the initial code length in order to allow the transparency optim.
   // note: In case the palette is full (256 entries) this optim is not possible
-  if(!useLocalTable && (pConfig->genFlags & FRAME_GEN_USE_TRANSPARENCY)) {
+  if(pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) {
     if (pFrame->initDictLen == pGIF->config.numGlobalPaletteEntries && pGIF->config.numGlobalPaletteEntries < 256) {
       ++(pFrame->initCodeLen);
       pFrame->initDictLen = 1uL << (pFrame->initCodeLen - 1);
@@ -502,7 +506,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   memcpy(pFrame->config.pImageData, pConfig->pImageData, imageWidth * imageHeight);
 
   // purge overlap of current frame and frame before (wdith - height optim), if required (FRAME_GEN_USE_DIFF_WINDOW set)
-  if(!useLocalTable && !isFirstFrame && (pConfig->genFlags & FRAME_GEN_USE_DIFF_WINDOW)) {
+  if(pFrame->config.genFlags & FRAME_GEN_USE_DIFF_WINDOW) {
     pTmpImageData = doWidthHeightOptim(pFrame->aImageHeader, pConfig->pImageData, pFrame->pBef->config.pImageData, imageWidth, imageHeight);
   } else {
     IMAGE_WIDTH(pFrame->aImageHeader)  = imageWidth;
@@ -511,8 +515,8 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   }
 
   // mark matching areas of the previous frame as transparent, if required (FRAME_GEN_USE_TRANSPARENCY set)
-  if(!useLocalTable && !isFirstFrame && (pConfig->genFlags & FRAME_GEN_USE_TRANSPARENCY) && pGIF->config.numGlobalPaletteEntries < 256) {
-    if (pTmpImageData == NULL) {
+  if((pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) && pGIF->config.numGlobalPaletteEntries < 256) {
+    if(pTmpImageData == NULL) {
       pTmpImageData = malloc(imageWidth * imageHeight); // TBD check return value of malloc
       memcpy(pTmpImageData, pConfig->pImageData, imageWidth * imageHeight);
     }
@@ -527,7 +531,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   }
 
   // generate LZW raster data (actual image data)
-  if(!useLocalTable && !isFirstFrame && (((pConfig->genFlags & FRAME_GEN_USE_TRANSPARENCY) &&  pGIF->config.numGlobalPaletteEntries < 256) || (pConfig->genFlags & FRAME_GEN_USE_DIFF_WINDOW))) {
+  if(((pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) &&  pGIF->config.numGlobalPaletteEntries < 256) || (pFrame->config.genFlags & FRAME_GEN_USE_DIFF_WINDOW)) {
     pFrame->pRasterData = LZW_GenerateStream(pFrame, IMAGE_WIDTH(pFrame->aImageHeader) * IMAGE_HEIGHT(pFrame->aImageHeader), pTmpImageData);
     free(pTmpImageData);
   } else {
@@ -535,7 +539,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   }
 
   // cleanup
-  if((&pGIF->firstFrame != pGIF->pCurFrame)) {
+  if(!isFirstFrame) {
     free(pFrame->pBef->config.pImageData);
   }
   pFrame->pNext             = malloc(sizeof(Frame)); // TBD check return value of malloc
@@ -551,7 +555,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
     pFrame->aGraphicExt[1] = 0xF9;
     pFrame->aGraphicExt[2] = 0x04;
     pFrame->aGraphicExt[3] = 0x04;
-    if(pConfig->genFlags & FRAME_GEN_USE_TRANSPARENCY) { // TBD check real
+    if(pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) {
       pFrame->aGraphicExt[3] |= 0x01;
     }
     pFrame->aGraphicExt[6] = pFrame->transIndex;
