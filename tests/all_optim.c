@@ -43,6 +43,7 @@ int main(void) {
   //
   // add frames to GIF
   pImageData = malloc(WIDTH * HEIGHT);         // Actual image data
+  memset(pImageData, 0, WIDTH * HEIGHT);
   initFrameConfig(&fConfig, pImageData, 100, FRAME_GEN_USE_TRANSPARENCY | FRAME_GEN_USE_DIFF_WINDOW);
   cgif_addframe(pGIF, &fConfig); // append the new frame
   memset(pImageData + 7, 1, 41);
