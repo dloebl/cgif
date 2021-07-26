@@ -30,7 +30,7 @@ int main(void) {
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
   gConfig.numGlobalPaletteEntries = numColors;
-  gConfig.path                    = "out.gif";
+  gConfig.path                    = "overlap_everything.gif";
   pGIF = cgif_newgif(&gConfig);
   //
   // Add frames to GIF

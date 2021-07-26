@@ -30,7 +30,7 @@ int main(void) {
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
   gConfig.numGlobalPaletteEntries = numColors;
-  gConfig.path                    = "out.gif";
+  gConfig.path                    = "animated_stripe_pattern.gif";
   //
   // create new GIF
   pGIF = cgif_newgif(&gConfig);

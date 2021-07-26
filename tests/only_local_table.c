@@ -27,7 +27,7 @@ int main(void) {
   gConfig.attrFlags               = GIF_ATTR_NO_GLOBAL_TABLE;
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
-  gConfig.path                    = "out.gif";
+  gConfig.path                    = "only_local_table.gif";
   pGIF = cgif_newgif(&gConfig);
   //
   // Add frame to GIF

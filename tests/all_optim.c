@@ -15,7 +15,7 @@ static void initGIFConfig(GIFConfig* pConfig, uint8_t* pGlobalPalette, uint16_t 
   pConfig->height                  = height;
   pConfig->pGlobalPalette          = pGlobalPalette;
   pConfig->numGlobalPaletteEntries = numColors;
-  pConfig->path                   = "out.gif";
+  pConfig->path                   = "all_optim.gif";
 }
 
 static void initFrameConfig(FrameConfig* pConfig, uint8_t* pImageData, uint16_t delay, uint32_t genFlags) {
