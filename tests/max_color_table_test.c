@@ -18,7 +18,9 @@ int main(void) {
   //
   // create an image
   aPalette   = malloc(256 * 3);
+  memset(aPalette, 0, 256 * 3);
   pImageData = malloc(WIDTH * HEIGHT);   // actual image data
+  memset(pImageData, 0, WIDTH * HEIGHT);
   //
   // create new GIF
   memset(&gConfig, 0, sizeof(GIFConfig));
@@ -34,6 +36,7 @@ int main(void) {
   fConfig.pImageData = pImageData;
   cgif_addframe(pGIF, &fConfig);
   free(pImageData);  
+  free(aPalette);
   //
   // free allocated space at the end of the session
   cgif_close(pGIF);  

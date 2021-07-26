@@ -24,7 +24,7 @@ do
   r=$(($r + $?))
   #
   # Check GIF with gifsicle
-  gifsicle -i out.gif -o /dev/null &> /dev/null
+  gifsicle --info out.gif -o /dev/null 2> /dev/null
   r=$(($r + $?))
   rm -f out.gif
   rm -f a.out

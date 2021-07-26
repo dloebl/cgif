@@ -132,7 +132,7 @@ static uint32_t lzw_generate(Frame* pFrame, LZWGenState* pContext) {
   resetDict(pContext, pFrame->initDictLen);                                            // reset dictionary and issue clear-code at first
   while(strPos < pContext->numPixel) {                                                 // while there are still image data to be encoded
     parentIndex  = pContext->pImageData[strPos];                                       // start at root node
-    strPos       = lzw_crawl_tree(pContext, strPos, parentIndex, pFrame->initDictLen); // get longest sequence that is still in dictionary, return new position in image data
+    strPos       = lzw_crawl_tree(pContext, strPos, (uint16_t)parentIndex, pFrame->initDictLen); // get longest sequence that is still in dictionary, return new position in image data
   }
   pContext->pLZWData[pContext->LZWPos] = pFrame->initDictLen + 1;                      // termination code
   return pContext->LZWPos + 1;                                                         // return number of elements of LZW data
@@ -154,7 +154,7 @@ static uint32_t create_byte_list(Frame* pFrame, uint8_t *byteList, uint32_t lzwP
   // We keep the option to NOT output the clear code as the first symbol in this function.
   dictPos     = 1;
   for(i = 0; i < lzwPos; ++i) {                                                 // loop over all LZW codes
-    if((lzwCodeLen < MAX_CODE_LEN) && (n - (pFrame->initDictLen) == dictPos)) { // larger code is used for the 1st time at i = 256 ...+ 512 ...+ 1024 -> 256, 768, 1792
+    if((lzwCodeLen < MAX_CODE_LEN) && ((uint32_t)(n - (pFrame->initDictLen)) == dictPos)) { // larger code is used for the 1st time at i = 256 ...+ 512 ...+ 1024 -> 256, 768, 1792
       ++lzwCodeLen;                                                             // increment the length of the LZW codes (bit units)
       n *= 2;                                                                   // set threshold for next increment of LZW code size
     }
@@ -384,7 +384,7 @@ static uint8_t* doWidthHeightOptim(uint8_t* pFrameHeader, uint8_t const* pCurIma
 
   // find top 
   i = 0;
-  while(i != height && memcmp(pCurImageData + i * width, pBefImageData + i * width, width) == 0) {
+  while(i < (height - 1) && memcmp(pCurImageData + i * width, pBefImageData + i * width, width) == 0) {
   ++i;
   }
   top                     = i;
@@ -430,7 +430,7 @@ static uint8_t* doWidthHeightOptim(uint8_t* pFrameHeader, uint8_t const* pCurIma
   IMAGE_WIDTH(pFrameHeader) = (x + 1) - IMAGE_LEFT(pFrameHeader);
 
   // check whether we need a dummy pixel (frame is identical with one before)
-  if (IMAGE_HEIGHT(pFrameHeader) == 0) {
+  if (IMAGE_WIDTH(pFrameHeader) == 0 || IMAGE_HEIGHT(pFrameHeader) == 0) {
     IMAGE_WIDTH(pFrameHeader)  = 1;
     IMAGE_HEIGHT(pFrameHeader) = 1;
     IMAGE_LEFT(pFrameHeader)   = 0;
