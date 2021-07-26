@@ -364,7 +364,7 @@ GIF* cgif_newgif(GIFConfig* pConfig) {
   pGIF->pCurFrame = &(pGIF->firstFrame);
   
   // write first sections to file
-  pGIF->pFile = fopen(pConfig->path, "w"); // TBD check if fopen success
+  pGIF->pFile = fopen(pConfig->path, "wb"); // TBD check if fopen success
   fwrite(pGIF->aHeader, 1, 13, pGIF->pFile);
   if((pGIF->config.attrFlags & GIF_ATTR_NO_GLOBAL_TABLE) == 0) {
     initCodeLen = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
