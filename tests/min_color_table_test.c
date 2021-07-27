@@ -26,7 +26,7 @@ int main(void) {
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
   gConfig.numGlobalPaletteEntries = numColors;
-  gConfig.path                    = "out.gif";
+  gConfig.path                    = "min_color_table_test.gif";
   pGIF = cgif_newgif(&gConfig);  
   //
   // add frames to GIF

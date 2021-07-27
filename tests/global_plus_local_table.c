@@ -35,7 +35,7 @@ int main(void) {
   gConfig.attrFlags               = GIF_ATTR_IS_ANIMATED;
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
-  gConfig.path                    = "out.gif";
+  gConfig.path                    = "global_plus_local_table.gif";
   pGIF = cgif_newgif(&gConfig);
   //
   // Add frame to GIF

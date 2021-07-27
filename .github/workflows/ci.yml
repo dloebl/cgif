@@ -1,0 +1,47 @@
+name: CI
+on:
+  - push
+  - pull_request
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+          - macos-10.15
+          - windows-2019
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+      - name: Dependencies (ubuntu)
+        if: contains(matrix.os, 'ubuntu')
+        run: sudo apt install gifsicle valgrind
+      - name: Dependencies (macos)
+        if: contains(matrix.os, 'macos')
+        run: brew install gifsicle
+      - name: Dependencies (windows)
+        if: contains(matrix.os, 'windows')
+        run: choco install gifsicle
+      - name: Build and test
+        uses: BSFishy/meson-build@v1.0.3
+        with:
+          action: test
+          meson-version: "0.59.0"
+          ninja-version: "1.10.0.post3"
+      - name: Verify test output
+        run: for f in build/*.gif; do gifsicle --info $f || exit 1; done
+        shell: bash
+      - name: Valgrind
+        if: contains(matrix.os, 'ubuntu')
+        uses: BSFishy/meson-build@v1.0.3
+        with:
+          action: test
+          options: "--wrap valgrind"
+          meson-version: "0.59.0"
+          ninja-version: "1.10.0.post3"
+        env:
+          VALGRIND_OPTS: "--memcheck:leak-check=full --memcheck:show-leak-kinds=definite --memcheck:error-exitcode=1"
+      - name: Valgrind output
+        if: contains(matrix.os, 'ubuntu')
+        run: cat build/meson-logs/testlog-valgrind.txt

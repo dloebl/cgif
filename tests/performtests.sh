@@ -15,19 +15,20 @@ tcc -c -o cgif.o -I.. ../cgif.c
 for sTest in $cfiles
 do
   printf %s "$sTest: "
-  tcc -o a.out -I.. $sTest cgif.o
-  idontcare=`./a.out`
+  basename=`basename $sTest .c`
+  tcc -o $basename.out -I.. $sTest cgif.o
+  idontcare=`./$basename.out`
   r=$?
   #
   # Check GIF with ImageMagick
-  identify out.gif > /dev/null 2> /dev/null
+  identify $basename.gif > /dev/null 2> /dev/null
   r=$(($r + $?))
   #
   # Check GIF with gifsicle
-  gifsicle --info out.gif -o /dev/null 2> /dev/null
+  gifsicle --info $basename.gif -o /dev/null 2> /dev/null
   r=$(($r + $?))
-  rm -f out.gif
-  rm -f a.out
+  rm -f $basename.gif
+  rm -f $basename.out
   rAll=$(($rAll + $r))
   if [ $r != 0 ]
   then
