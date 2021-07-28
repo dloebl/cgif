@@ -456,6 +456,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   uint32_t i, x;
   int      isFirstFrame;
   int      useLocalTable;
+  int      hasTransparency;
   
   pFrame        = pGIF->pCurFrame;
   memcpy(&(pFrame->config), pConfig, sizeof(FrameConfig));
@@ -465,10 +466,11 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   // determine fixed attributes of frame
   isFirstFrame  = ((&pGIF->firstFrame == pGIF->pCurFrame))                ? 1 : 0;
   useLocalTable = (pFrame->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
+  hasTransparency = (pConfig->attrFlags & FRAME_ATTR_HAS_TRANSPARENCY)    ? 1 : 0;
   // deactivate impossible size optimizations 
   //  => in case the current frame or the frame before use a local-color table
   // FRAME_GEN_USE_TRANSPARENCY and FRAME_GEN_USE_DIFF_WINDOW are not possible
-  if(isFirstFrame || useLocalTable || (!isFirstFrame && (pFrame->pBef->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE))) {
+  if(isFirstFrame || useLocalTable || hasTransparency || (!isFirstFrame && (pFrame->pBef->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE))) {
     pFrame->config.genFlags &= ~(FRAME_GEN_USE_TRANSPARENCY | FRAME_GEN_USE_DIFF_WINDOW);
   }
 
@@ -554,8 +556,12 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
     pFrame->aGraphicExt[0] = 0x21;
     pFrame->aGraphicExt[1] = 0xF9;
     pFrame->aGraphicExt[2] = 0x04;
-    pFrame->aGraphicExt[3] = 0x04;
-    if(pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) {
+    if(hasTransparency) {
+      pFrame->aGraphicExt[3] = 0x08; // restore original background
+    } else {
+      pFrame->aGraphicExt[3] = 0x04; // leave previous frame
+    }
+    if((pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) || hasTransparency) {
       pFrame->aGraphicExt[3] |= 0x01;
     }
     pFrame->aGraphicExt[6] = pFrame->transIndex;
