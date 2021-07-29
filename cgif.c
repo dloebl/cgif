@@ -334,6 +334,16 @@ static void initAppExtBlock(GIF* pGIF) {
   NETSCAPE_LOOPS(pGIF->aAppExt)          = pGIF->config.numLoops; // number of repetitions (animation), TBD: works only on little endian system
 }
 
+/* write a chunk of data to either a callback or a file */
+static int write(GIF* pGIF, const uint8_t* pData, const size_t numBytes) {
+  if(pGIF->pFile) {
+    return fwrite(pData, 1, numBytes, pGIF->pFile);
+  } else if(pGIF->config.pWriteFn) {
+    return pGIF->config.pWriteFn(pGIF->config.pContext, pData, numBytes);
+  }
+  return 0;
+}
+
 /* create a new GIF */
 GIF* cgif_newgif(GIFConfig* pConfig) {
   GIF*     pGIF;
@@ -364,15 +374,18 @@ GIF* cgif_newgif(GIFConfig* pConfig) {
   pGIF->pCurFrame = &(pGIF->firstFrame);
   
   // write first sections to file
-  pGIF->pFile = fopen(pConfig->path, "wb"); // TBD check if fopen success
-  fwrite(pGIF->aHeader, 1, 13, pGIF->pFile);
+  pGIF->pFile = NULL;
+  if(pConfig->path) {
+    pGIF->pFile = fopen(pConfig->path, "wb"); // TBD check if fopen success
+  }
+  write(pGIF, pGIF->aHeader, 13);
   if((pGIF->config.attrFlags & GIF_ATTR_NO_GLOBAL_TABLE) == 0) {
     initCodeLen = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
     initDictLen = 1uL << (initCodeLen - 1);
-    fwrite(pGIF->aGlobalColorTable, 1, initDictLen * 3, pGIF->pFile);
+    write(pGIF, pGIF->aGlobalColorTable, initDictLen * 3);
   }
   if(pGIF->config.attrFlags & GIF_ATTR_IS_ANIMATED) {
-    fwrite(pGIF->aAppExt, 1, 19, pGIF->pFile);
+    write(pGIF, pGIF->aAppExt, 19);
   }
   return pGIF;
 }
@@ -562,17 +575,17 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
     GEXT_DELAY(pFrame->aGraphicExt) = pConfig->delay; // set delay (TBD: works only on little endian system)
   }
 
-  // write frame to file
+  // write frame
   initialCodeSize = pFrame->initCodeLen - 1;
   if(pGIF->config.attrFlags & GIF_ATTR_IS_ANIMATED) {
-    fwrite(pFrame->aGraphicExt, 1, 8, pGIF->pFile);
+    write(pGIF, pFrame->aGraphicExt, 8);
   }
-  fwrite(pFrame->aImageHeader, 1, 10, pGIF->pFile);
+  write(pGIF, pFrame->aImageHeader, 10);
   if(pFrame->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE) {
-    fwrite(pFrame->aLocalColorTable, 1, pFrame->initDictLen * 3, pGIF->pFile);
+    write(pGIF, pFrame->aLocalColorTable, pFrame->initDictLen * 3);
   }
-  fwrite(&initialCodeSize, 1, 1, pGIF->pFile);
-  fwrite(pFrame->pRasterData, 1, pFrame->sizeRasterData, pGIF->pFile);  
+  write(pGIF, (unsigned char*) &initialCodeSize, 1);
+  write(pGIF, pFrame->pRasterData, pFrame->sizeRasterData);
 
   // free stuff
   free(pFrame->pRasterData);
@@ -586,8 +599,10 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
 int cgif_close(GIF* pGIF) {
   // not first frame?
   // => free preserved image data of the frame before
-  fwrite(";", 1, 1, pGIF->pFile); // write term symbol to GIF-file 
-  fclose(pGIF->pFile);            // we are done at this point => close the file
+  write(pGIF, (unsigned char*) ";", 1); // write term symbol
+  if(pGIF->pFile) {
+    fclose(pGIF->pFile);            // we are done at this point => close the file
+  }
   if(&(pGIF->firstFrame) != pGIF->pCurFrame) {
     free(pGIF->pCurFrame->pBef->config.pImageData);
     if(pGIF->pCurFrame->pBef != &(pGIF->firstFrame)) {

@@ -19,6 +19,8 @@ typedef struct st_frame       Frame;                  // struct for a single fra
 typedef struct st_gifconfig    GIFConfig;               // global cofinguration parameters of the GIF
 typedef struct st_frameconfig  FrameConfig;             // local configuration parameters for a frame
 
+typedef int cgif_write_fn(void* pContext, const uint8_t* pData, const size_t numBytes); // callback function for stream-based output
+
 // prototypes
 GIF* cgif_newgif     (GIFConfig* pConfig);              // creates a new GIF (returns pointer to new GIF or NULL on error)
 int  cgif_addframe   (GIF* pGIF, FrameConfig* pConfig); // adds the next frame to an existing GIF (returns 0 on success)
@@ -28,13 +30,15 @@ int  cgif_close      (GIF* pGIF);                     // close file and free all
 // note: must stay AS IS for backward compatibility
 struct st_gifconfig {
   uint8_t*    pGlobalPalette;                            // global color table of the GIF
-  const char* path;                                      // path of the GIF to be created
+  const char* path;                                      // path of the GIF to be created, mutually exclusive with pWriteFn
   uint32_t    attrFlags;                                 // fixed attributes of the GIF (e.g. whether it is animated or not)
   uint32_t    genFlags;                                  // flags that determine how the GIF is generated (e.g. optimization)
   uint16_t    width;                                     // width of each frame in the GIF
   uint16_t    height;                                    // height of each frame in the GIF
   uint16_t    numGlobalPaletteEntries;                   // size of the global color table
   uint16_t    numLoops;                                  // number of repetitons of an animated GIF (set to INFINITE_LOOP for infinite loop)
+  cgif_write_fn *pWriteFn;                               // callback function for chunks of output data, mutually exclusive with path
+  void*       pContext;                                  // opaque pointer passed as the first parameter to pWriteFn
 };
 
 // FrameConfig type (parameters passed by user)

@@ -7,6 +7,7 @@ tests = [
   'only_local_table',
   'overlap_everything',
   'overlap_some_rows',
+  'write_fn',
 ]
 
 foreach t : tests
