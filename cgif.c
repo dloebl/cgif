@@ -48,6 +48,22 @@ typedef struct {
   uint16_t        dictPos;    // currrent position in dictionary, we need to store 0-4096 -- so there are at least 13 bits needed here
 } LZWGenState;
 
+/* converts host U16 to little-endian (LE) U16 */
+static uint16_t hU16toLE(const uint16_t n) {
+  int      isBE;
+  uint16_t newVal;
+  uint16_t one;
+
+  one    = 1;
+  isBE   = *((uint8_t*)&one) ? 0 : 1;
+  if(isBE) {
+    newVal = (n >> 8) | (n << 8);
+  } else {
+    newVal = n; // already LE
+  }
+  return newVal;
+}
+
 /* create new node in the tree that represents the dictionary of LZW-codes */
 static void newNode(uint16_t* pTree, const uint16_t LZWIndex, const uint16_t initDictLen) {
   uint16_t* pNode;
@@ -272,10 +288,10 @@ static void initMainHeader(GIF* pGIF) {
   pGIF->aHeader[HEADER_OFFSET_VERSION + 2]   = 'a';
 
   // set width of screen
-  HEADER_WIDTH(pGIF->aHeader)  = width; // TBD: works only on little endian system
+  HEADER_WIDTH(pGIF->aHeader)  = hU16toLE(width);
 
   // set height of screen
-  HEADER_HEIGHT(pGIF->aHeader) = height; // TBD: works only on little endian system
+  HEADER_HEIGHT(pGIF->aHeader) = hU16toLE(height);
 
   // init packed field
   x = (pGIF->config.attrFlags & GIF_ATTR_NO_GLOBAL_TABLE) ? 0 : 1;
@@ -331,7 +347,7 @@ static void initAppExtBlock(GIF* pGIF) {
   pGIF->aAppExt[APPEXT_OFFSET_NAME + 10] = '0';
   pGIF->aAppExt[APPEXT_OFFSET_NAME + 11] = 0x03; // 3 bytes to follow
   pGIF->aAppExt[APPEXT_OFFSET_NAME + 12] = 0x01; // TBD clarify
-  NETSCAPE_LOOPS(pGIF->aAppExt)          = pGIF->config.numLoops; // number of repetitions (animation), TBD: works only on little endian system
+  NETSCAPE_LOOPS(pGIF->aAppExt)          = hU16toLE(pGIF->config.numLoops); // number of repetitions (animation), TBD: works only on little endian system
 }
 
 /* create a new GIF */
@@ -378,31 +394,31 @@ GIF* cgif_newgif(GIFConfig* pConfig) {
 }
 
 /* optimize GIF file size by only redrawing the rectangular area that differs from previous frame */
-static uint8_t* doWidthHeightOptim(uint8_t* pFrameHeader, uint8_t const* pCurImageData, uint8_t const* pBefImageData, const uint16_t width, const uint16_t height) {
+static uint8_t* doWidthHeightOptim(Frame* pFrame, uint8_t const* pCurImageData, uint8_t const* pBefImageData, const uint16_t width, const uint16_t height) {
   uint8_t* pNewImageData;
-  uint16_t i, x, top;
+  uint16_t i, x;
+  uint16_t newHeight, newWidth, newLeft, newTop;
 
   // find top 
   i = 0;
   while(i < (height - 1) && memcmp(pCurImageData + i * width, pBefImageData + i * width, width) == 0) {
   ++i;
   }
-  top                     = i;
-  IMAGE_TOP(pFrameHeader) = top;
+  newTop                  = i;
 
   // find actual height
   i = height - 1;
-  while(i > top && memcmp(pCurImageData + i * width, pBefImageData + i * width, width) == 0) {
+  while(i > newTop && memcmp(pCurImageData + i * width, pBefImageData + i * width, width) == 0) {
     --i;
   }
-  IMAGE_HEIGHT(pFrameHeader) = (i + 1) - top;
+  newHeight                  = (i + 1) - newTop;
 
   // find left
-  i = top;
+  i = newTop;
   x = 0;
   while(pCurImageData[i * width + x] == pBefImageData[i * width + x]) {
     ++i;
-    if(i > IMAGE_HEIGHT(pFrameHeader)) {
+    if(i > newHeight) {
       if(x < width) {
         ++x;
         i = 0;
@@ -411,15 +427,15 @@ static uint8_t* doWidthHeightOptim(uint8_t* pFrameHeader, uint8_t const* pCurIma
       }
     }
   }
-  IMAGE_LEFT(pFrameHeader) = x;
+  newLeft                          = x;
 
   // find actual width
-  i = top;
+  i = newTop;
   x = width - 1;
   while(pCurImageData[i * width + x] == pBefImageData[i * width + x]) {
     ++i;
-    if(i > IMAGE_HEIGHT(pFrameHeader)) {
-      if(x > IMAGE_LEFT(pFrameHeader)) {
+    if(i > newHeight) {
+      if(x > newLeft) {
         --x;
         i = 0;
       } else {
@@ -427,21 +443,27 @@ static uint8_t* doWidthHeightOptim(uint8_t* pFrameHeader, uint8_t const* pCurIma
       }
     }
   }
-  IMAGE_WIDTH(pFrameHeader) = (x + 1) - IMAGE_LEFT(pFrameHeader);
+  newWidth                          = (x + 1) - newLeft;
 
   // check whether we need a dummy pixel (frame is identical with one before)
-  if (IMAGE_WIDTH(pFrameHeader) == 0 || IMAGE_HEIGHT(pFrameHeader) == 0) {
-    IMAGE_WIDTH(pFrameHeader)  = 1;
-    IMAGE_HEIGHT(pFrameHeader) = 1;
-    IMAGE_LEFT(pFrameHeader)   = 0;
-    IMAGE_TOP(pFrameHeader)    = 0;
+  if (newWidth == 0 || newHeight == 0) {
+    newWidth  = 1;
+    newHeight = 1;
+    newLeft   = 0;
+    newTop    = 0;
   }
 
   // create new image data
-  pNewImageData = malloc(IMAGE_WIDTH(pFrameHeader) * IMAGE_HEIGHT(pFrameHeader)); // TBD check return value of malloc
-  for (i = 0; i < IMAGE_HEIGHT(pFrameHeader); ++i) {
-    memcpy(pNewImageData + i * IMAGE_WIDTH(pFrameHeader), pCurImageData + (i + IMAGE_TOP(pFrameHeader)) * width + IMAGE_LEFT(pFrameHeader), IMAGE_WIDTH(pFrameHeader));
+  pNewImageData = malloc(newWidth * newHeight); // TBD check return value of malloc
+  for (i = 0; i < newHeight; ++i) {
+    memcpy(pNewImageData + i * newWidth, pCurImageData + (i + newTop) * width + newLeft, newWidth);
   }
+  
+  // set new width, height, top, left in Frame struct
+  pFrame->width  = newWidth;
+  pFrame->height = newHeight;
+  pFrame->top    = newTop;
+  pFrame->left   = newLeft;
   return pNewImageData;
 }
 
@@ -452,15 +474,15 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   uint8_t* pBefImageData;
   uint16_t imageWidth;
   uint16_t imageHeight;
-  uint16_t initialCodeSize; 
+  uint8_t  initialCodeSize; 
   uint32_t i, x;
   int      isFirstFrame;
   int      useLocalTable;
   
   pFrame        = pGIF->pCurFrame;
   memcpy(&(pFrame->config), pConfig, sizeof(FrameConfig));
-  imageWidth    = HEADER_WIDTH(pGIF->aHeader);
-  imageHeight   = HEADER_HEIGHT(pGIF->aHeader);
+  imageWidth    = pGIF->config.width;
+  imageHeight   = pGIF->config.height;
 
   // determine fixed attributes of frame
   isFirstFrame  = ((&pGIF->firstFrame == pGIF->pCurFrame))                ? 1 : 0;
@@ -507,12 +529,18 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
 
   // purge overlap of current frame and frame before (wdith - height optim), if required (FRAME_GEN_USE_DIFF_WINDOW set)
   if(pFrame->config.genFlags & FRAME_GEN_USE_DIFF_WINDOW) {
-    pTmpImageData = doWidthHeightOptim(pFrame->aImageHeader, pConfig->pImageData, pFrame->pBef->config.pImageData, imageWidth, imageHeight);
+    pTmpImageData = doWidthHeightOptim(pFrame, pConfig->pImageData, pFrame->pBef->config.pImageData, imageWidth, imageHeight);
   } else {
-    IMAGE_WIDTH(pFrame->aImageHeader)  = imageWidth;
-    IMAGE_HEIGHT(pFrame->aImageHeader) = imageHeight;
+    pFrame->width                      = imageWidth;
+    pFrame->height                     = imageHeight;
+    pFrame->top                        = 0;
+    pFrame->left                       = 0;
     pTmpImageData                      = NULL;
   }
+  IMAGE_WIDTH(pFrame->aImageHeader)  = hU16toLE(pFrame->width);
+  IMAGE_HEIGHT(pFrame->aImageHeader) = hU16toLE(pFrame->height);
+  IMAGE_TOP(pFrame->aImageHeader)    = hU16toLE(pFrame->top);
+  IMAGE_LEFT(pFrame->aImageHeader)   = hU16toLE(pFrame->left);
 
   // mark matching areas of the previous frame as transparent, if required (FRAME_GEN_USE_TRANSPARENCY set)
   if((pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) && pGIF->config.numGlobalPaletteEntries < 256) {
@@ -521,10 +549,10 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
       memcpy(pTmpImageData, pConfig->pImageData, imageWidth * imageHeight);
     }
     pBefImageData = pFrame->pBef->config.pImageData;
-    for(i = 0; i < IMAGE_HEIGHT(pFrame->aImageHeader); ++i) {
-      for(x = 0; x < IMAGE_WIDTH(pFrame->aImageHeader); ++x) {
-        if(pTmpImageData[i * IMAGE_WIDTH(pFrame->aImageHeader) + x] == pBefImageData[((IMAGE_TOP(pFrame->aImageHeader) + i) * imageWidth) + (IMAGE_LEFT(pFrame->aImageHeader) + x)]) {
-          pTmpImageData[i * IMAGE_WIDTH(pFrame->aImageHeader) + x] = pFrame->transIndex;
+    for(i = 0; i < pFrame->height; ++i) {
+      for(x = 0; x < pFrame->width; ++x) {
+        if(pTmpImageData[i * pFrame->width + x] == pBefImageData[((pFrame->top + i) * imageWidth) + (pFrame->left + x)]) {
+          pTmpImageData[i * pFrame->width + x] = pFrame->transIndex;
         }
       }
     }
@@ -532,7 +560,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
 
   // generate LZW raster data (actual image data)
   if(((pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) &&  pGIF->config.numGlobalPaletteEntries < 256) || (pFrame->config.genFlags & FRAME_GEN_USE_DIFF_WINDOW)) {
-    pFrame->pRasterData = LZW_GenerateStream(pFrame, IMAGE_WIDTH(pFrame->aImageHeader) * IMAGE_HEIGHT(pFrame->aImageHeader), pTmpImageData);
+    pFrame->pRasterData = LZW_GenerateStream(pFrame, pFrame->width * pFrame->height, pTmpImageData);
     free(pTmpImageData);
   } else {
     pFrame->pRasterData = LZW_GenerateStream(pFrame, imageWidth * imageHeight, pConfig->pImageData);
@@ -559,7 +587,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
       pFrame->aGraphicExt[3] |= 0x01;
     }
     pFrame->aGraphicExt[6] = pFrame->transIndex;
-    GEXT_DELAY(pFrame->aGraphicExt) = pConfig->delay; // set delay (TBD: works only on little endian system)
+    GEXT_DELAY(pFrame->aGraphicExt) = hU16toLE(pConfig->delay); // set delay (TBD: works only on little endian system)
   }
 
   // write frame to file
