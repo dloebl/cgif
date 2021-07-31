@@ -402,48 +402,48 @@ static uint8_t* doWidthHeightOptim(Frame* pFrame, uint8_t const* pCurImageData, 
   // find top 
   i = 0;
   while(i < (height - 1) && memcmp(pCurImageData + i * width, pBefImageData + i * width, width) == 0) {
-  ++i;
+    ++i;
   }
-  newTop                  = i;
+  newTop = i;
 
   // find actual height
   i = height - 1;
   while(i > newTop && memcmp(pCurImageData + i * width, pBefImageData + i * width, width) == 0) {
     --i;
   }
-  newHeight                  = (i + 1) - newTop;
+  newHeight = (i + 1) - newTop;
 
   // find left
   i = newTop;
   x = 0;
   while(pCurImageData[i * width + x] == pBefImageData[i * width + x]) {
     ++i;
-    if(i > newHeight) {
+    if(i > (newTop + newHeight - 1)) {
       if(x < width) {
         ++x;
-        i = 0;
+        i = newTop;
       } else {
         break;
       }
     }
   }
-  newLeft                          = x;
+  newLeft = x;
 
   // find actual width
   i = newTop;
   x = width - 1;
   while(pCurImageData[i * width + x] == pBefImageData[i * width + x]) {
     ++i;
-    if(i > newHeight) {
+    if(i > (newTop + newHeight - 1)) {
       if(x > newLeft) {
         --x;
-        i = 0;
+        i = newTop;
       } else {
         break;
       }
     }
   }
-  newWidth                          = (x + 1) - newLeft;
+  newWidth = (x + 1) - newLeft;
 
   // check whether we need a dummy pixel (frame is identical with one before)
   if (newWidth == 0 || newHeight == 0) {
