@@ -57,6 +57,10 @@ struct st_frame {
   uint8_t*          pRasterData;                       // (internal) pointer to LZW-data
   uint32_t          sizeRasterData;                    // (internal) size of the LZW-data
   uint16_t          initDictLen;                       // (internal) length of the initial color dictionary (maximum 256)
+  uint16_t          width;                             // actual width of frame
+  uint16_t          height;                            // actual height of frame
+  uint16_t          top;                               // actual top offset of frame
+  uint16_t          left;                              // actual left offset of frame
   uint8_t           transIndex;                        // (internal) index indicating transparent pixel
   uint8_t           aGraphicExt[8];                    //
   uint8_t           aImageHeader[10];                  // (internal) header of the frame
