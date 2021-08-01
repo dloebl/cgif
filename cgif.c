@@ -584,7 +584,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   if(pFrame->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE) {
     write(pGIF, pFrame->aLocalColorTable, pFrame->initDictLen * 3);
   }
-  write(pGIF, (unsigned char*) &initialCodeSize, 1);
+  write(pGIF, &initialCodeSize, 1);
   write(pGIF, pFrame->pRasterData, pFrame->sizeRasterData);
 
   // free stuff
