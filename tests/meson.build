@@ -1,6 +1,9 @@
 tests = [
   'all_optim',
+  'animated_single_pixel',
+  'animated_snake',
   'animated_stripe_pattern',
+  'animated_stripe_pattern_2',
   'global_plus_local_table',
   'max_color_table_test',
   'min_color_table_test',
