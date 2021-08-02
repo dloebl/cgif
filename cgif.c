@@ -347,7 +347,7 @@ static void initAppExtBlock(GIF* pGIF) {
   pGIF->aAppExt[APPEXT_OFFSET_NAME + 10] = '0';
   pGIF->aAppExt[APPEXT_OFFSET_NAME + 11] = 0x03; // 3 bytes to follow
   pGIF->aAppExt[APPEXT_OFFSET_NAME + 12] = 0x01; // TBD clarify
-  NETSCAPE_LOOPS(pGIF->aAppExt)          = hU16toLE(pGIF->config.numLoops); // number of repetitions (animation), TBD: works only on little endian system
+  NETSCAPE_LOOPS(pGIF->aAppExt)          = hU16toLE(pGIF->config.numLoops); // number of repetitions (animation)
 }
 
 /* create a new GIF */
@@ -404,7 +404,13 @@ static uint8_t* doWidthHeightOptim(Frame* pFrame, uint8_t const* pCurImageData, 
   while(i < height && memcmp(pCurImageData + i * width, pBefImageData + i * width, width) == 0) {
     ++i;
   }
-  if(i == height) goto Done;
+  if(i == height) { // need dummy pixel (frame is identical with one before)
+    newWidth  = 1;
+    newHeight = 1;
+    newLeft   = 0;
+    newTop    = 0;
+    goto Done;
+  }
   newTop = i;
   
   // find actual height
@@ -414,18 +420,14 @@ static uint8_t* doWidthHeightOptim(Frame* pFrame, uint8_t const* pCurImageData, 
   }
   newHeight = (i + 1) - newTop;
 
-  // find left (note x==width cannot happen as goto Done is triggered in the only possible case before)
+  // find left
   i = newTop;
   x = 0;
   while(pCurImageData[i * width + x] == pBefImageData[i * width + x]) {
     ++i;
     if(i > (newTop + newHeight - 1)) {
-      if(x < width) {
-        ++x;
-        i = newTop;
-      } else {
-        break;
-      }
+      ++x; //(x==width cannot happen as goto Done is triggered in the only possible case before)
+      i = newTop;
     }
   }
   newLeft = x;
@@ -436,23 +438,13 @@ static uint8_t* doWidthHeightOptim(Frame* pFrame, uint8_t const* pCurImageData, 
   while(pCurImageData[i * width + x] == pBefImageData[i * width + x]) {
     ++i;
     if(i > (newTop + newHeight - 1)) {
-      if(x > newLeft) {
-        --x;
-        i = newTop;
-      } else {
-        break;
-      }
+      --x; //(x<newLeft cannot happen as goto Done is triggered in the only possible case before)
+      i = newTop;
     }
   }
   newWidth = (x + 1) - newLeft;
-  // check whether we need a dummy pixel (frame is identical with one before)
-  if (newWidth == 0 || newHeight == 0) {
+
 Done:
-    newWidth  = 1;
-    newHeight = 1;
-    newLeft   = 0;
-    newTop    = 0;
-  }
 
   // create new image data
   pNewImageData = malloc(newWidth * newHeight); // TBD check return value of malloc
@@ -588,7 +580,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
       pFrame->aGraphicExt[3] |= 0x01;
     }
     pFrame->aGraphicExt[6] = pFrame->transIndex;
-    GEXT_DELAY(pFrame->aGraphicExt) = hU16toLE(pConfig->delay); // set delay (TBD: works only on little endian system)
+    GEXT_DELAY(pFrame->aGraphicExt) = hU16toLE(pConfig->delay); // set delay
   }
 
   // write frame to file
