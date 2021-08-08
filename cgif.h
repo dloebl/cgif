@@ -7,6 +7,7 @@
 // flags to set the GIF/frame-attributes
 #define GIF_ATTR_IS_ANIMATED          (1uL << 1)       // make an animated GIF (default is non-animated GIF)
 #define GIF_ATTR_NO_GLOBAL_TABLE      (1uL << 2)       // disable global color table (global color table is default)
+#define GIF_ATTR_HAS_TRANSPARENCY     (1uL << 3)       // first entry in color table contains transparency
 #define FRAME_ATTR_USE_LOCAL_TABLE    (1uL << 0)       // use a local color table for a frame (local color table is not used by default)
 // flags to decrease GIF-size
 #define FRAME_GEN_USE_TRANSPARENCY    (1uL << 0)       // use transparency optimization (setting pixels identical to previous frame transparent)

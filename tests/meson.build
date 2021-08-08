@@ -5,6 +5,7 @@ tests = [
   'animated_stripe_pattern',
   'animated_stripe_pattern_2',
   'global_plus_local_table',
+  'has_transparency',
   'max_color_table_test',
   'min_color_table_test',
   'only_local_table',
