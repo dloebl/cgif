@@ -19,7 +19,7 @@ int main(void) {
 
   memset(&gConfig, 0, sizeof(GIFConfig));
   memset(&fConfig, 0, sizeof(FrameConfig));
-  gConfig.attrFlags               = GIF_ATTR_IS_ANIMATED;
+  gConfig.attrFlags               = GIF_ATTR_IS_ANIMATED | GIF_ATTR_HAS_TRANSPARENCY;  // first entry in color table is transparency
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
@@ -32,7 +32,6 @@ int main(void) {
   // add frames to GIF
   pImageData = malloc(WIDTH * HEIGHT);
   memset(pImageData, 0, WIDTH * HEIGHT);
-  fConfig.attrFlags  = FRAME_ATTR_HAS_TRANSPARENCY; // first entry in color table is transparency
   fConfig.pImageData = pImageData;
   fConfig.delay      = 100;
   // create an off/on pattern

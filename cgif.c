@@ -463,14 +463,14 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   imageWidth    = HEADER_WIDTH(pGIF->aHeader);
   imageHeight   = HEADER_HEIGHT(pGIF->aHeader);
 
-  // determine fixed attributes of frame
+  // determine fixed attributes of frame / GIF
   isFirstFrame    = ((&pGIF->firstFrame == pGIF->pCurFrame))                ? 1 : 0;
   useLocalTable   = (pFrame->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
-  hasTransparency = (pConfig->attrFlags & FRAME_ATTR_HAS_TRANSPARENCY)      ? 1 : 0;
+  hasTransparency = (pGIF->config.attrFlags & GIF_ATTR_HAS_TRANSPARENCY)    ? 1 : 0;
   // deactivate impossible size optimizations 
   //  => in case the current frame or the frame before use a local-color table or transparency
   // FRAME_GEN_USE_TRANSPARENCY and FRAME_GEN_USE_DIFF_WINDOW are not possible
-  if(isFirstFrame || useLocalTable || hasTransparency || (!isFirstFrame && (pFrame->pBef->config.attrFlags & (FRAME_ATTR_USE_LOCAL_TABLE | FRAME_ATTR_HAS_TRANSPARENCY)))) {
+  if(isFirstFrame || useLocalTable || hasTransparency || (!isFirstFrame && (pFrame->pBef->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE))) {
     pFrame->config.genFlags &= ~(FRAME_GEN_USE_TRANSPARENCY | FRAME_GEN_USE_DIFF_WINDOW);
   }
 
@@ -550,7 +550,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   pFrame->pNext->pNext      = NULL;
   pGIF->pCurFrame           = pFrame->pNext;
 
-  // do things for animation, if necessary
+  // do things for animation / user-defined transparency, if necessary
   if(pGIF->config.attrFlags & GIF_ATTR_IS_ANIMATED) {
     memset(pFrame->aGraphicExt, 0, sizeof(pFrame->aGraphicExt));
     pFrame->aGraphicExt[0] = 0x21;

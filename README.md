@@ -35,8 +35,8 @@ With our encoder you can create animated or static GIFs, you can or cannot use c
 ```C
 GIF_ATTR_IS_ANIMATED          // make an animated GIF (default is non-animated GIF)
 GIF_ATTR_NO_GLOBAL_TABLE      // disable global color table (global color table is default)
+GIF_ATTR_HAS_TRANSPARENCY     // first entry in color table contains transparency
 FRAME_ATTR_USE_LOCAL_TABLE    // use a local color table for a frame (not used by default)
-FRAME_ATTR_HAS_TRANSPARENCY   // first entry in color table contains transparency
 FRAME_GEN_USE_TRANSPARENCY    // use transparency optimization (size optimization)
 FRAME_GEN_USE_DIFF_WINDOW     // do encoding just for the sub-window that changed (size optimization)
 ```
