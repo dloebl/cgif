@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // flags to set the GIF/frame-attributes
 #define GIF_ATTR_IS_ANIMATED          (1uL << 1)       // make an animated GIF (default is non-animated GIF)
 #define GIF_ATTR_NO_GLOBAL_TABLE      (1uL << 2)       // disable global color table (global color table is default)
@@ -85,4 +89,8 @@ struct st_gif {
   Frame    firstFrame;                                // (internal) pointer to next frame
 };
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif // CGIF_H
