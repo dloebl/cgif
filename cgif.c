@@ -498,7 +498,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   // deactivate impossible size optimizations 
   //  => in case the current frame or the frame before use a local-color table or transparency
   // FRAME_GEN_USE_TRANSPARENCY and FRAME_GEN_USE_DIFF_WINDOW are not possible
-  if(isFirstFrame || useLocalTable || hasTransparency || pFrame->pBef->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE) {
+  if(isFirstFrame || useLocalTable || hasTransparency || (pFrame->pBef->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE)) {
     pFrame->config.genFlags &= ~(FRAME_GEN_USE_TRANSPARENCY | FRAME_GEN_USE_DIFF_WINDOW);
   }
 
