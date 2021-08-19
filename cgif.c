@@ -77,27 +77,9 @@ static void add_child(uint16_t* pTree, const uint16_t parentIndex, const uint16_
   pTree[parentIndex * initDictLen + index] = LZWIndex;
 }
 
-/* compute which initial LZW-code length is needed (shorter version?)*/
+/* compute which initial LZW-code length is needed */
 static uint8_t calcInitCodeLen(uint16_t numEntries) {
-  if(numEntries > (1uL << 7)) {
-    return 9;
-  }
-  if(numEntries > (1uL << 6)) {
-    return 8; 
-  }
-  if(numEntries > (1uL << 5)) {
-    return 7;
-  }
-  if(numEntries > (1uL << 4)) {
-    return 6;
-  }
-  if(numEntries > (1uL << 3)) {
-    return 5;
-  }
-  if(numEntries > (1uL << 2)) {
-    return 4; 
-  }
-  return 3;
+  return 31 - __builtin_clz(numEntries - 1) + 2; // log2(n - 1) + 2
 }
 
 /* reset the dictionary of known LZW codes -- will reset the current code length as well */
