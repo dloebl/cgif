@@ -77,27 +77,11 @@ static void add_child(uint16_t* pTree, const uint16_t parentIndex, const uint16_
   pTree[parentIndex * initDictLen + index] = LZWIndex;
 }
 
-/* compute which initial LZW-code length is needed (shorter version?)*/
+/* compute which initial LZW-code length is needed */
 static uint8_t calcInitCodeLen(uint16_t numEntries) {
-  if(numEntries > (1uL << 7)) {
-    return 9;
-  }
-  if(numEntries > (1uL << 6)) {
-    return 8; 
-  }
-  if(numEntries > (1uL << 5)) {
-    return 7;
-  }
-  if(numEntries > (1uL << 4)) {
-    return 6;
-  }
-  if(numEntries > (1uL << 3)) {
-    return 5;
-  }
-  if(numEntries > (1uL << 2)) {
-    return 4; 
-  }
-  return 3;
+  uint8_t index;
+  for (index = 0; numEntries > (1uL << index); ++index);
+  return (index < 3) ? 3 : index + 1;
 }
 
 /* reset the dictionary of known LZW codes -- will reset the current code length as well */
@@ -271,8 +255,6 @@ static void initMainHeader(GIF* pGIF) {
 
   width           = pGIF->config.width;
   height          = pGIF->config.height;
-  // calculate initial code length
-  initCodeLen = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
 
   // set header to a clean state
   memset(pGIF->aHeader, 0, sizeof(pGIF->aHeader));
@@ -297,6 +279,8 @@ static void initMainHeader(GIF* pGIF) {
   x = (pGIF->config.attrFlags & GIF_ATTR_NO_GLOBAL_TABLE) ? 0 : 1;
   pGIF->aHeader[HEADER_OFFSET_PACKED_FIELD] = (x << 7);                        // M = 1 (see GIF specs): Global color map is present
   if(x) {
+    // calculate initial code length
+    initCodeLen = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
     pGIF->aHeader[HEADER_OFFSET_PACKED_FIELD] |= ((initCodeLen - 2) << 0);     // set size of global color table
   }
   pGIF->aHeader[HEADER_OFFSET_PACKED_FIELD] |= (0uL << 4);                     // set color resolution (outdated - always zero)
@@ -363,8 +347,7 @@ static int write(GIF* pGIF, const uint8_t* pData, const size_t numBytes) {
 /* create a new GIF */
 GIF* cgif_newgif(GIFConfig* pConfig) {
   GIF*     pGIF;
-  uint8_t  initCodeLen;
-  uint16_t initDictLen;
+  uint8_t  initCodeSize;
 
   pGIF = malloc(sizeof(GIF));
   if(pGIF == NULL) {
@@ -396,9 +379,8 @@ GIF* cgif_newgif(GIFConfig* pConfig) {
   }
   write(pGIF, pGIF->aHeader, 13);
   if((pGIF->config.attrFlags & GIF_ATTR_NO_GLOBAL_TABLE) == 0) {
-    initCodeLen = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
-    initDictLen = 1uL << (initCodeLen - 1);
-    write(pGIF, pGIF->aGlobalColorTable, initDictLen * 3);
+    initCodeSize = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
+    write(pGIF, pGIF->aGlobalColorTable, 3 << (initCodeSize - 1));
   }
   if(pGIF->config.attrFlags & GIF_ATTR_IS_ANIMATED) {
     write(pGIF, pGIF->aAppExt, 19);
@@ -480,7 +462,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   uint8_t* pBefImageData;
   uint16_t imageWidth;
   uint16_t imageHeight;
-  uint8_t  initialCodeSize; 
+  uint8_t  initialCodeSize;
   uint32_t i, x;
   int      isFirstFrame;
   int      useLocalTable;
@@ -524,7 +506,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   // check if we need to increase the initial code length in order to allow the transparency optim.
   // note: In case the palette is full (256 entries) this optim is not possible
   if(pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) {
-    if (pFrame->initDictLen == pGIF->config.numGlobalPaletteEntries && pGIF->config.numGlobalPaletteEntries < 256) {
+    if(pFrame->initDictLen == pGIF->config.numGlobalPaletteEntries && pGIF->config.numGlobalPaletteEntries < 256) {
       ++(pFrame->initCodeLen);
       pFrame->initDictLen = 1uL << (pFrame->initCodeLen - 1);
     }
