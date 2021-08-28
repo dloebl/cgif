@@ -379,8 +379,8 @@ GIF* cgif_newgif(GIFConfig* pConfig) {
   }
   write(pGIF, pGIF->aHeader, 13);
   if((pGIF->config.attrFlags & GIF_ATTR_NO_GLOBAL_TABLE) == 0) {
-    initCodeSize = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries) - 1;
-    write(pGIF, pGIF->aGlobalColorTable, 3 << initCodeSize);
+    initCodeSize = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
+    write(pGIF, pGIF->aGlobalColorTable, 3 << (initCodeSize - 1));
   }
   if(pGIF->config.attrFlags & GIF_ATTR_IS_ANIMATED) {
     write(pGIF, pGIF->aAppExt, 19);
@@ -591,7 +591,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   }
   write(pGIF, pFrame->aImageHeader, 10);
   if(pFrame->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE) {
-    write(pGIF, pFrame->aLocalColorTable, 3 << initialCodeSize);
+    write(pGIF, pFrame->aLocalColorTable, pFrame->initDictLen * 3);
   }
   write(pGIF, &initialCodeSize, 1);
   write(pGIF, pFrame->pRasterData, pFrame->sizeRasterData);
