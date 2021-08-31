@@ -24,7 +24,7 @@ int main(void) {
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
   gConfig.numGlobalPaletteEntries = 2;
-  gConfig.path                    = "has_transparency.gif";
+  gConfig.path                    = "has_transparency_2.gif";
   //
   // create new GIF
   pGIF = cgif_newgif(&gConfig);
