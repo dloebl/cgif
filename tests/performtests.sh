@@ -9,10 +9,9 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-cfiles=`ls *.c`
 rAll=0
 tcc -c -o cgif.o -I.. ../cgif.c
-for sTest in $cfiles
+for sTest in *.c
 do
   printf %s "$sTest: "
   basename=`basename $sTest .c`
