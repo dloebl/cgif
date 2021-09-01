@@ -10,9 +10,9 @@
 
 /* This is an example code that creates a GIF-animation with a moving stripe-pattern. */
 int main(void) {
-  GIF*         pGIF;
-  GIFConfig     gConfig;
-  FrameConfig   fConfig;
+  CGIF*         pGIF;
+  CGIF_Config     gConfig;
+  CGIF_FrameConfig   fConfig;
   uint8_t*      pImageData;
   uint8_t aPalette[] = {
     0x00, 0x00, 0x00, // black
@@ -22,9 +22,9 @@ int main(void) {
   //
   // Create new GIF
   //
-  memset(&gConfig, 0, sizeof(GIFConfig));
-  memset(&fConfig, 0, sizeof(FrameConfig));
-  gConfig.attrFlags               = GIF_ATTR_NO_GLOBAL_TABLE;
+  memset(&gConfig, 0, sizeof(CGIF_Config));
+  memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
+  gConfig.attrFlags               = CGIF_ATTR_NO_GLOBAL_TABLE;
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.path                    = "only_local_table.gif";
@@ -38,7 +38,7 @@ int main(void) {
   fConfig.pImageData = pImageData;
   fConfig.pLocalPalette = aPalette;
   fConfig.numLocalPaletteEntries = numColors;
-  fConfig.attrFlags = FRAME_ATTR_USE_LOCAL_TABLE;
+  fConfig.attrFlags = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
   cgif_addframe(pGIF, &fConfig); // append the new frame
   //
   free(pImageData);

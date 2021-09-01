@@ -9,9 +9,9 @@
 
 /* This is an example code that creates a GIF-animation with a moving stripe-pattern. */
 int main(void) {
-  GIF*          pGIF;
-  GIFConfig      gConfig;
-  FrameConfig    fConfig;
+  CGIF*          pGIF;
+  CGIF_Config      gConfig;
+  CGIF_FrameConfig    fConfig;
   uint8_t*      pImageData;
   uint8_t       aPalette[] = {
     0xFF, 0x00, 0x00,
@@ -28,9 +28,9 @@ int main(void) {
   uint8_t numColors   = 10;  // number of colors in aPalette
   int numFrames       = 10; // number of frames in the video
   
-  memset(&gConfig, 0, sizeof(GIFConfig));
-  memset(&fConfig, 0, sizeof(FrameConfig));
-  gConfig.attrFlags               = GIF_ATTR_IS_ANIMATED; // set needed attribution flag (as GIF is animated) 
+  memset(&gConfig, 0, sizeof(CGIF_Config));
+  memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
+  gConfig.attrFlags               = CGIF_ATTR_IS_ANIMATED; // set needed attribution flag (as GIF is animated) 
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
@@ -42,7 +42,7 @@ int main(void) {
   //
   // add frames to GIF
   pImageData = malloc(WIDTH * HEIGHT);         // actual image data
-  fConfig.genFlags   = FRAME_GEN_USE_DIFF_WINDOW | FRAME_GEN_USE_TRANSPARENCY;
+  fConfig.genFlags   = CGIF_FRAME_GEN_USE_DIFF_WINDOW | CGIF_FRAME_GEN_USE_TRANSPARENCY;
   fConfig.pImageData = pImageData;             // set pointer to image data
   fConfig.delay      = 50;                     // set time before next frame (in units of 0.01 s)
   for (int f = 0; f < numFrames; ++f) {

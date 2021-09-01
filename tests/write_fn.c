@@ -12,9 +12,9 @@ static int pWriteFn(void* pContext, const uint8_t* pData, const size_t numBytes)
 }
 
 int main(void) {
-  GIF*          pGIF;
-  GIFConfig     gConfig;
-  FrameConfig   fConfig;
+  CGIF*          pGIF;
+  CGIF_Config     gConfig;
+  CGIF_FrameConfig   fConfig;
   uint8_t*      pImageData;
   uint8_t       aPalette[] = {
     0x00, 0x00, 0x00, // black
@@ -23,8 +23,8 @@ int main(void) {
 
   FILE* file = fopen("write_fn.gif", "wb");
 
-  memset(&gConfig, 0, sizeof(GIFConfig));
-  memset(&fConfig, 0, sizeof(FrameConfig));
+  memset(&gConfig, 0, sizeof(CGIF_Config));
+  memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;

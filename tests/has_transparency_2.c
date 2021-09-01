@@ -8,18 +8,18 @@
 #define HEIGHT 99
 
 int main(void) {
-  GIF*          pGIF;
-  GIFConfig     gConfig;
-  FrameConfig   fConfig;
+  CGIF*          pGIF;
+  CGIF_Config     gConfig;
+  CGIF_FrameConfig   fConfig;
   uint8_t*      pImageData;
   uint8_t       aPalette[] = {
     0x00, 0x00, 0x00, // black (transparent)
     0xFF, 0xFF, 0xFF, // white
   };
 
-  memset(&gConfig, 0, sizeof(GIFConfig));
-  memset(&fConfig, 0, sizeof(FrameConfig));
-  gConfig.attrFlags               = GIF_ATTR_IS_ANIMATED | GIF_ATTR_HAS_TRANSPARENCY;  // first entry in color table is transparency
+  memset(&gConfig, 0, sizeof(CGIF_Config));
+  memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
+  gConfig.attrFlags               = CGIF_ATTR_IS_ANIMATED | CGIF_ATTR_HAS_TRANSPARENCY;  // first entry in color table is transparency
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;

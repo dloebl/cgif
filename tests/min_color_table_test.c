@@ -9,9 +9,9 @@
 
 /* This is an example code that creates a GIF-image with all green pixels. */
 int main(void) {
-  GIF*         pGIF;
-  GIFConfig     gConfig;
-  FrameConfig   fConfig;
+  CGIF*         pGIF;
+  CGIF_Config     gConfig;
+  CGIF_FrameConfig   fConfig;
   uint8_t*      pImageData;
   uint8_t       aPalette[] = { 0x00, 0xFF, 0x00 }; // green
   uint8_t       numColors  = 1; // number of colors in aPalette  
@@ -21,7 +21,7 @@ int main(void) {
   memset(pImageData, 0, WIDTH * HEIGHT); // set to all green   
   //
   // create new GIF
-  memset(&gConfig, 0, sizeof(GIFConfig));
+  memset(&gConfig, 0, sizeof(CGIF_Config));
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
@@ -30,7 +30,7 @@ int main(void) {
   pGIF = cgif_newgif(&gConfig);  
   //
   // add frames to GIF
-  memset(&fConfig, 0, sizeof(FrameConfig));
+  memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
   fConfig.pImageData = pImageData;
   cgif_addframe(pGIF, &fConfig);
   free(pImageData);  

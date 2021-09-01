@@ -10,9 +10,9 @@
 
 /* This is an example code that creates a GIF-animation with a moving stripe-pattern. */
 int main(void) {
-  GIF*         pGIF;
-  GIFConfig     gConfig;
-  FrameConfig   fConfig;
+  CGIF*         pGIF;
+  CGIF_Config     gConfig;
+  CGIF_FrameConfig   fConfig;
   uint8_t*      pImageData;
   uint8_t aLocalPalette[] = {
     0x00, 0x00, 0x00, // black
@@ -28,11 +28,11 @@ int main(void) {
   //
   // Create new GIF
   //
-  memset(&gConfig, 0, sizeof(GIFConfig));
-  memset(&fConfig, 0, sizeof(FrameConfig));
+  memset(&gConfig, 0, sizeof(CGIF_Config));
+  memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
   gConfig.pGlobalPalette               = aGlobalPalette;
   gConfig.numGlobalPaletteEntries = numColorsGlobal;
-  gConfig.attrFlags               = GIF_ATTR_IS_ANIMATED;
+  gConfig.attrFlags               = CGIF_ATTR_IS_ANIMATED;
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.path                    = "global_plus_local_table.gif";
@@ -46,13 +46,13 @@ int main(void) {
   fConfig.pImageData = pImageData;
   fConfig.pLocalPalette = aLocalPalette;
   fConfig.numLocalPaletteEntries = numColorsLocal;
-  fConfig.attrFlags = FRAME_ATTR_USE_LOCAL_TABLE;
+  fConfig.attrFlags = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
   fConfig.delay = 100;
   cgif_addframe(pGIF, &fConfig); // append the new frame
   //
   // add next frame
   fConfig.attrFlags = 0;
-  fConfig.genFlags = FRAME_GEN_USE_TRANSPARENCY;
+  fConfig.genFlags = CGIF_FRAME_GEN_USE_TRANSPARENCY;
   memset(pImageData + WIDTH * 9, 2, WIDTH * 10);
   cgif_addframe(pGIF, &fConfig); // append the new frame
   //
