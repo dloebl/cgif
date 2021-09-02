@@ -26,7 +26,6 @@ do
   # Check GIF with gifsicle
   gifsicle --info $basename.gif -o /dev/null 2> /dev/null
   r=$(($r + $?))
-  rm -f $basename.gif
   rm -f $basename.out
   rAll=$(($rAll + $r))
   if [ $r != 0 ]
@@ -37,11 +36,18 @@ do
   fi
 done
 rm -f cgif.o
+#
+# check MD5 hashes
+md5sum -c --quiet tests.md5
+rAll=$(($rAll + $?))
+rm *.gif
 echo "-------------------------------"
 printf "result of all tests: "
 if [ $rAll != 0 ]
 then
   printf "${RED}FAILED${NC}\n"
+  exit 1 # error
 else
   printf "${GREEN}OK${NC}\n"
+  exit 0 # O.K.
 fi	
