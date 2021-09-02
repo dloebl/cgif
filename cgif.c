@@ -124,7 +124,7 @@ static uint32_t lzw_crawl_tree(LZWGenState* pContext, uint32_t strPos, uint16_t 
 }
 
 /* generate LZW-codes that compress the image data*/
-static uint32_t lzw_generate(Frame* pFrame, LZWGenState* pContext) {
+static uint32_t lzw_generate(CGIF_Frame* pFrame, LZWGenState* pContext) {
   uint32_t strPos;
   uint8_t  parentIndex;
 
@@ -139,7 +139,7 @@ static uint32_t lzw_generate(Frame* pFrame, LZWGenState* pContext) {
 }
 
 /* pack the LZW data into a byte sequence*/
-static uint32_t create_byte_list(Frame* pFrame, uint8_t *byteList, uint32_t lzwPos, uint16_t *lzwStr){
+static uint32_t create_byte_list(CGIF_Frame* pFrame, uint8_t *byteList, uint32_t lzwPos, uint16_t *lzwStr){
   uint32_t i;
   uint32_t dictPos;                                                             // counting new LZW codes
   uint16_t n             = 2 * pFrame->initDictLen;                             // if n - pFrame->initDictLen == dictPos, the LZW code size is incremented by 1 bit
@@ -215,7 +215,7 @@ static uint32_t create_byte_list_block(uint8_t *byteList, uint8_t *byteListBlock
 }
 
 /* create all LZW raster data in GIF-format */
-static uint8_t* LZW_GenerateStream(Frame* pFrame, const uint32_t numPixel, const uint8_t* pImageData){
+static uint8_t* LZW_GenerateStream(CGIF_Frame* pFrame, const uint32_t numPixel, const uint8_t* pImageData){
   LZWGenState* pContext;
   uint32_t     lzwPos, bytePos;
   uint32_t     bytePosBlock;
@@ -248,7 +248,7 @@ static uint8_t* LZW_GenerateStream(Frame* pFrame, const uint32_t numPixel, const
 }
 
 /* initialize the header of the GIF */
-static void initMainHeader(GIF* pGIF) {
+static void initMainHeader(CGIF* pGIF) {
   uint16_t width, height;
   uint8_t  x;
   uint8_t  initCodeLen;
@@ -276,7 +276,7 @@ static void initMainHeader(GIF* pGIF) {
   HEADER_HEIGHT(pGIF->aHeader) = hU16toLE(height);
 
   // init packed field
-  x = (pGIF->config.attrFlags & GIF_ATTR_NO_GLOBAL_TABLE) ? 0 : 1;
+  x = (pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) ? 0 : 1;
   pGIF->aHeader[HEADER_OFFSET_PACKED_FIELD] = (x << 7);                        // M = 1 (see GIF specs): Global color map is present
   if(x) {
     // calculate initial code length
@@ -287,7 +287,7 @@ static void initMainHeader(GIF* pGIF) {
 }
 
 /* initialize the global color table */
-static void initGlobalColorTable(GIF* pGIF) {
+static void initGlobalColorTable(CGIF* pGIF) {
   uint8_t*  pGlobalPalette;
   uint16_t  numGlobalPaletteEntries;
 
@@ -298,7 +298,7 @@ static void initGlobalColorTable(GIF* pGIF) {
 }
 
 /* initialize the local color table */
-static void initLocalColorTable(Frame* pFrame) {
+static void initLocalColorTable(CGIF_Frame* pFrame) {
   uint8_t* pLocalPalette;
   uint16_t numLocalPaletteEntries;
   
@@ -309,7 +309,7 @@ static void initLocalColorTable(Frame* pFrame) {
 }
 
 /* initialize NETSCAPE app extension block (needed for animation) */
-static void initAppExtBlock(GIF* pGIF) {
+static void initAppExtBlock(CGIF* pGIF) {
   memset(pGIF->aAppExt, 0, sizeof(pGIF->aAppExt));
 
   // set data
@@ -335,7 +335,7 @@ static void initAppExtBlock(GIF* pGIF) {
 }
 
 /* write a chunk of data to either a callback or a file */
-static int write(GIF* pGIF, const uint8_t* pData, const size_t numBytes) {
+static int write(CGIF* pGIF, const uint8_t* pData, const size_t numBytes) {
   if(pGIF->pFile) {
     return fwrite(pData, 1, numBytes, pGIF->pFile);
   } else if(pGIF->config.pWriteFn) {
@@ -345,15 +345,15 @@ static int write(GIF* pGIF, const uint8_t* pData, const size_t numBytes) {
 }
 
 /* create a new GIF */
-GIF* cgif_newgif(GIFConfig* pConfig) {
-  GIF*     pGIF;
+CGIF* cgif_newgif(CGIF_Config* pConfig) {
+  CGIF*     pGIF;
   uint8_t  initCodeSize;
 
-  pGIF = malloc(sizeof(GIF));
+  pGIF = malloc(sizeof(CGIF));
   if(pGIF == NULL) {
     return NULL; // error -> malloc failed
   }
-  memcpy(&(pGIF->config), pConfig, sizeof(GIFConfig));
+  memcpy(&(pGIF->config), pConfig, sizeof(CGIF_Config));
 
   // initiate all sections we can at this stage:
   // - main GIF header
@@ -362,14 +362,14 @@ GIF* cgif_newgif(GIFConfig* pConfig) {
   initMainHeader(pGIF);
 
   // global color table required? => init it.
-  if((pGIF->config.attrFlags & GIF_ATTR_NO_GLOBAL_TABLE) == 0) {
+  if((pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
     initGlobalColorTable(pGIF);  
   }
   // GIF should be animated? => init corresponding app extension header (NETSCAPE2.0)
-  if(pConfig->attrFlags & GIF_ATTR_IS_ANIMATED) {
+  if(pConfig->attrFlags & CGIF_ATTR_IS_ANIMATED) {
     initAppExtBlock(pGIF);
   }
-  memset(&(pGIF->firstFrame), 0, sizeof(Frame));
+  memset(&(pGIF->firstFrame), 0, sizeof(CGIF_Frame));
   pGIF->pCurFrame = &(pGIF->firstFrame);
   
   // write first sections to file
@@ -378,18 +378,18 @@ GIF* cgif_newgif(GIFConfig* pConfig) {
     pGIF->pFile = fopen(pConfig->path, "wb"); // TBD check if fopen success
   }
   write(pGIF, pGIF->aHeader, 13);
-  if((pGIF->config.attrFlags & GIF_ATTR_NO_GLOBAL_TABLE) == 0) {
+  if((pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
     initCodeSize = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
     write(pGIF, pGIF->aGlobalColorTable, 3 << (initCodeSize - 1));
   }
-  if(pGIF->config.attrFlags & GIF_ATTR_IS_ANIMATED) {
+  if(pGIF->config.attrFlags & CGIF_ATTR_IS_ANIMATED) {
     write(pGIF, pGIF->aAppExt, 19);
   }
   return pGIF;
 }
 
 /* optimize GIF file size by only redrawing the rectangular area that differs from previous frame */
-static uint8_t* doWidthHeightOptim(Frame* pFrame, uint8_t const* pCurImageData, uint8_t const* pBefImageData, const uint16_t width, const uint16_t height) {
+static uint8_t* doWidthHeightOptim(CGIF_Frame* pFrame, uint8_t const* pCurImageData, uint8_t const* pBefImageData, const uint16_t width, const uint16_t height) {
   uint8_t* pNewImageData;
   uint16_t i, x;
   uint16_t newHeight, newWidth, newLeft, newTop;
@@ -456,8 +456,8 @@ Done:
 }
 
 /* add a new GIF-frame and write it */
-int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
-  Frame*   pFrame;
+int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
+  CGIF_Frame*   pFrame;
   uint8_t* pTmpImageData;
   uint8_t* pBefImageData;
   uint16_t imageWidth;
@@ -469,19 +469,19 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   int      hasTransparency;
   
   pFrame        = pGIF->pCurFrame;
-  memcpy(&(pFrame->config), pConfig, sizeof(FrameConfig));
+  memcpy(&(pFrame->config), pConfig, sizeof(CGIF_FrameConfig));
   imageWidth    = pGIF->config.width;
   imageHeight   = pGIF->config.height;
 
   // determine fixed attributes of frame / GIF
   isFirstFrame    = ((&pGIF->firstFrame == pGIF->pCurFrame))                ? 1 : 0;
-  useLocalTable   = (pFrame->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
-  hasTransparency = (pGIF->config.attrFlags & GIF_ATTR_HAS_TRANSPARENCY)    ? 1 : 0;
+  useLocalTable   = (pFrame->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
+  hasTransparency = (pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY)    ? 1 : 0;
   // deactivate impossible size optimizations 
   //  => in case the current frame or the frame before use a local-color table or transparency
-  // FRAME_GEN_USE_TRANSPARENCY and FRAME_GEN_USE_DIFF_WINDOW are not possible
-  if(isFirstFrame || useLocalTable || hasTransparency || (pFrame->pBef->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE)) {
-    pFrame->config.genFlags &= ~(FRAME_GEN_USE_TRANSPARENCY | FRAME_GEN_USE_DIFF_WINDOW);
+  // CGIF_FRAME_GEN_USE_TRANSPARENCY and CGIF_FRAME_GEN_USE_DIFF_WINDOW are not possible
+  if(isFirstFrame || useLocalTable || hasTransparency || (pFrame->pBef->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE)) {
+    pFrame->config.genFlags &= ~(CGIF_FRAME_GEN_USE_TRANSPARENCY | CGIF_FRAME_GEN_USE_DIFF_WINDOW);
   }
 
   // set Frame header to a clean state
@@ -505,7 +505,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
 
   // check if we need to increase the initial code length in order to allow the transparency optim.
   // note: In case the palette is full (256 entries) this optim is not possible
-  if(pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) {
+  if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) {
     if(pFrame->initDictLen == pGIF->config.numGlobalPaletteEntries && pGIF->config.numGlobalPaletteEntries < 256) {
       ++(pFrame->initCodeLen);
       pFrame->initDictLen = 1uL << (pFrame->initCodeLen - 1);
@@ -513,12 +513,12 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
     pFrame->transIndex = pFrame->initDictLen - 1;
   }
 
-  // copy given raw image data into the new FrameConfig, as we might need it in a later stage.
+  // copy given raw image data into the new CGIF_FrameConfig, as we might need it in a later stage.
   pFrame->config.pImageData = malloc(imageWidth * imageHeight); // TBD check return value of malloc
   memcpy(pFrame->config.pImageData, pConfig->pImageData, imageWidth * imageHeight);
 
-  // purge overlap of current frame and frame before (wdith - height optim), if required (FRAME_GEN_USE_DIFF_WINDOW set)
-  if(pFrame->config.genFlags & FRAME_GEN_USE_DIFF_WINDOW) {
+  // purge overlap of current frame and frame before (wdith - height optim), if required (CGIF_FRAME_GEN_USE_DIFF_WINDOW set)
+  if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW) {
     pTmpImageData = doWidthHeightOptim(pFrame, pConfig->pImageData, pFrame->pBef->config.pImageData, imageWidth, imageHeight);
   } else {
     pFrame->width                      = imageWidth;
@@ -532,8 +532,8 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   IMAGE_TOP(pFrame->aImageHeader)    = hU16toLE(pFrame->top);
   IMAGE_LEFT(pFrame->aImageHeader)   = hU16toLE(pFrame->left);
 
-  // mark matching areas of the previous frame as transparent, if required (FRAME_GEN_USE_TRANSPARENCY set)
-  if((pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) && pGIF->config.numGlobalPaletteEntries < 256) {
+  // mark matching areas of the previous frame as transparent, if required (CGIF_FRAME_GEN_USE_TRANSPARENCY set)
+  if((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) && pGIF->config.numGlobalPaletteEntries < 256) {
     if(pTmpImageData == NULL) {
       pTmpImageData = malloc(imageWidth * imageHeight); // TBD check return value of malloc
       memcpy(pTmpImageData, pConfig->pImageData, imageWidth * imageHeight);
@@ -549,7 +549,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   }
 
   // generate LZW raster data (actual image data)
-  if(((pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) &&  pGIF->config.numGlobalPaletteEntries < 256) || (pFrame->config.genFlags & FRAME_GEN_USE_DIFF_WINDOW)) {
+  if(((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) &&  pGIF->config.numGlobalPaletteEntries < 256) || (pFrame->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW)) {
     pFrame->pRasterData = LZW_GenerateStream(pFrame, pFrame->width * pFrame->height, pTmpImageData);
     free(pTmpImageData);
   } else {
@@ -560,14 +560,14 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
   if(!isFirstFrame) {
     free(pFrame->pBef->config.pImageData);
   }
-  pFrame->pNext             = malloc(sizeof(Frame)); // TBD check return value of malloc
+  pFrame->pNext             = malloc(sizeof(CGIF_Frame)); // TBD check return value of malloc
   pFrame->pNext->transIndex = 0;
   pFrame->pNext->pBef       = pFrame;
   pFrame->pNext->pNext      = NULL;
   pGIF->pCurFrame           = pFrame->pNext;
 
   // do things for animation / user-defined transparency, if necessary
-  if(pGIF->config.attrFlags & GIF_ATTR_IS_ANIMATED) {
+  if(pGIF->config.attrFlags & CGIF_ATTR_IS_ANIMATED) {
     memset(pFrame->aGraphicExt, 0, sizeof(pFrame->aGraphicExt));
     pFrame->aGraphicExt[0] = 0x21;
     pFrame->aGraphicExt[1] = 0xF9;
@@ -577,7 +577,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
     } else {
       pFrame->aGraphicExt[3] = 0x04; // leave previous frame
     }
-    if((pFrame->config.genFlags & FRAME_GEN_USE_TRANSPARENCY) || hasTransparency) {
+    if((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) || hasTransparency) {
       pFrame->aGraphicExt[3] |= 0x01;
     }
     pFrame->aGraphicExt[6] = pFrame->transIndex;
@@ -586,11 +586,11 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
 
   // write frame
   initialCodeSize = pFrame->initCodeLen - 1;
-  if(pGIF->config.attrFlags & GIF_ATTR_IS_ANIMATED) {
+  if(pGIF->config.attrFlags & CGIF_ATTR_IS_ANIMATED) {
     write(pGIF, pFrame->aGraphicExt, 8);
   }
   write(pGIF, pFrame->aImageHeader, 10);
-  if(pFrame->config.attrFlags & FRAME_ATTR_USE_LOCAL_TABLE) {
+  if(pFrame->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) {
     write(pGIF, pFrame->aLocalColorTable, pFrame->initDictLen * 3);
   }
   write(pGIF, &initialCodeSize, 1);
@@ -605,7 +605,7 @@ int cgif_addframe(GIF* pGIF, FrameConfig* pConfig) {
 }
 
 /* write terminate code, close the GIF-file, free allocated space */
-int cgif_close(GIF* pGIF) {
+int cgif_close(CGIF* pGIF) {
   // not first frame?
   // => free preserved image data of the frame before
   write(pGIF, (unsigned char*) ";", 1); // write term symbol

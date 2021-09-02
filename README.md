@@ -20,25 +20,25 @@ To get an overview of the code, we recommend having a look at the header file ``
 
 ```C
 // These are the four struct types that contain all GIF data and parameters:
-typedef GIFConfig               // global cofinguration parameters of the GIF
-typedef FrameConfig             // local configuration parameters for a frame
-typedef GIF                     // struct for the full GIF
-typedef Frame                   // struct for a single frame
+typedef CGIF_Config               // global cofinguration parameters of the GIF
+typedef CGIF_FrameConfig          // local configuration parameters for a frame
+typedef CGIF                     // struct for the full GIF
+typedef CGIF_Frame               // struct for a single frame
 
 // The user needs only these three functions to create a GIF image:
-GIF* cgif_newgif    (GIFConfig* pConfig);               // creates a new GIF
-int  cgif_addframe  (GIF* pGIF, FrameConfig* pConfig);  // adds a frame to an existing GIF
-int  cgif_close     (GIF* pGIF);                        // close the created file and free memory
+CGIF* cgif_newgif   (CGIF_Config* pConfig);                   // creates a new GIF
+int  cgif_addframe  (CGIF* pGIF, CGIF_FrameConfig* pConfig);  // adds a frame to an existing GIF
+int  cgif_close     (CGIF* pGIF);                           // close the created file and free memory
 ```
 
-With our encoder you can create animated or static GIFs, you can or cannot use certain optimizations, and so on. You can switch between all these different options easily using the two attributes ```attrFlags``` and ```genFlags``` in the configurations ```GIFConfig``` and ```FrameConfig```. These attributes are of type ```uint32_t``` and bundle yes/no-options with a bit-wise logic. So far only a few of the 32 bits are used leaving space to include further functionalities ensuring backward compatibility. We provide the following flag settings which can be combined by bit-wise or-operations:
+With our encoder you can create animated or static GIFs, you can or cannot use certain optimizations, and so on. You can switch between all these different options easily using the two attributes ```attrFlags``` and ```genFlags``` in the configurations ```CGIF_Config``` and ```CGIF_FrameConfig```. These attributes are of type ```uint32_t``` and bundle yes/no-options with a bit-wise logic. So far only a few of the 32 bits are used leaving space to include further functionalities ensuring backward compatibility. We provide the following flag settings which can be combined by bit-wise or-operations:
 ```C
-GIF_ATTR_IS_ANIMATED          // make an animated GIF (default is non-animated GIF)
-GIF_ATTR_NO_GLOBAL_TABLE      // disable global color table (global color table is default)
-GIF_ATTR_HAS_TRANSPARENCY     // first entry in color table contains transparency
-FRAME_ATTR_USE_LOCAL_TABLE    // use a local color table for a frame (not used by default)
-FRAME_GEN_USE_TRANSPARENCY    // use transparency optimization (size optimization)
-FRAME_GEN_USE_DIFF_WINDOW     // do encoding just for the sub-window that changed (size optimization)
+CGIF_ATTR_IS_ANIMATED              // make an animated GIF (default is non-animated GIF)
+CGIF_ATTR_NO_GLOBAL_TABLE          // disable global color table (global color table is default)
+CGIF_ATTR_HAS_TRANSPARENCY         // first entry in color table contains transparency
+CGIF_FRAME_ATTR_USE_LOCAL_TABLE    // use a local color table for a frame (not used by default)
+CGIF_FRAME_GEN_USE_TRANSPARENCY    // use transparency optimization (size optimization)
+CGIF_FRAME_GEN_USE_DIFF_WINDOW     // do encoding just for the sub-window that changed (size optimization)
 ```
 If you didn't understand the point of ```attrFlags``` and ```genFlags``` and the flags, please don't worry. The example files ```cgif_example.c``` and ```cgif_example_video.c``` are all you need to get started and the used default settings for ```attrFlags``` and ```genFlags``` cover most cases quite well.
 

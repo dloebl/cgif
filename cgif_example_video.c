@@ -8,26 +8,26 @@
 #define HEIGHT 100
 
 /* Small helper functions to initialize GIF- and frame-configuration */
-static void initGIFConfig(GIFConfig* pConfig, char* path, uint16_t width, uint16_t height, uint8_t* pPalette, uint16_t numColors) {
-  memset(pConfig, 0, sizeof(GIFConfig));
+static void initGIFConfig(CGIF_Config* pConfig, char* path, uint16_t width, uint16_t height, uint8_t* pPalette, uint16_t numColors) {
+  memset(pConfig, 0, sizeof(CGIF_Config));
   pConfig->width                   = width;
   pConfig->height                  = height;
   pConfig->pGlobalPalette          = pPalette;
   pConfig->numGlobalPaletteEntries = numColors;
   pConfig->path                    = path;
-  pConfig->attrFlags               = GIF_ATTR_IS_ANIMATED;
+  pConfig->attrFlags               = CGIF_ATTR_IS_ANIMATED;
 }
-static void initFrameConfig(FrameConfig* pConfig, uint8_t* pImageData, uint16_t delay) {
-  memset(pConfig, 0, sizeof(FrameConfig));
+static void initFrameConfig(CGIF_FrameConfig* pConfig, uint8_t* pImageData, uint16_t delay) {
+  memset(pConfig, 0, sizeof(CGIF_FrameConfig));
   pConfig->delay      = delay;
   pConfig->pImageData = pImageData;
 }
 
 /* This is an example code that creates a GIF-animation with a moving stripe-pattern. */
 int main(void) {
-  GIF*        pGIF;                                                      // struct containing the GIF
-  GIFConfig    gConfig;                                                  // global configuration parameters for the GIF
-  FrameConfig  fConfig;                                                  // configuration parameters for a frame
+  CGIF*            pGIF;                                                 // struct containing the GIF
+  CGIF_Config       gConfig;                                               // global configuration parameters for the GIF
+  CGIF_FrameConfig  fConfig;                                               // configuration parameters for a frame
   uint8_t*    pImageData;                                                // image data (an array of color-indices)
   uint8_t aPalette[] = {0xFF, 0x00, 0x00,                                // red
                         0x00, 0xFF, 0x00,                                // green

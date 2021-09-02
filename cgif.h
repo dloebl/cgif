@@ -9,29 +9,29 @@ extern "C" {
 #endif
 
 // flags to set the GIF/frame-attributes
-#define GIF_ATTR_IS_ANIMATED          (1uL << 1)       // make an animated GIF (default is non-animated GIF)
-#define GIF_ATTR_NO_GLOBAL_TABLE      (1uL << 2)       // disable global color table (global color table is default)
-#define GIF_ATTR_HAS_TRANSPARENCY     (1uL << 3)       // first entry in color table contains transparency
-#define FRAME_ATTR_USE_LOCAL_TABLE    (1uL << 0)       // use a local color table for a frame (local color table is not used by default)
+#define CGIF_ATTR_IS_ANIMATED            (1uL << 1)       // make an animated GIF (default is non-animated GIF)
+#define CGIF_ATTR_NO_GLOBAL_TABLE        (1uL << 2)       // disable global color table (global color table is default)
+#define CGIF_ATTR_HAS_TRANSPARENCY       (1uL << 3)       // first entry in color table contains transparency
+#define CGIF_FRAME_ATTR_USE_LOCAL_TABLE  (1uL << 0)       // use a local color table for a frame (local color table is not used by default)
 // flags to decrease GIF-size
-#define FRAME_GEN_USE_TRANSPARENCY    (1uL << 0)       // use transparency optimization (setting pixels identical to previous frame transparent)
-#define FRAME_GEN_USE_DIFF_WINDOW     (1uL << 1)       // do encoding just for the sub-window that has changed from previous frame
+#define CGIF_FRAME_GEN_USE_TRANSPARENCY  (1uL << 0)       // use transparency optimization (setting pixels identical to previous frame transparent)
+#define CGIF_FRAME_GEN_USE_DIFF_WINDOW   (1uL << 1)       // do encoding just for the sub-window that has changed from previous frame
 
-#define INFINITE_LOOP (0x0000uL)                       // for animated GIF: 0 specifies infinite loop
+#define CGIF_INFINITE_LOOP               (0x0000uL)       // for animated GIF: 0 specifies infinite loop
 
-typedef struct st_gif         GIF;                    // struct for the full GIF
-typedef struct st_frame       Frame;                  // struct for a single frame
-typedef struct st_gifconfig    GIFConfig;               // global cofinguration parameters of the GIF
-typedef struct st_frameconfig  FrameConfig;             // local configuration parameters for a frame
+typedef struct st_gif         CGIF;                      // struct for the full GIF
+typedef struct st_frame       CGIF_Frame;                // struct for a single frame
+typedef struct st_gifconfig    CGIF_Config;                // global cofinguration parameters of the GIF
+typedef struct st_frameconfig  CGIF_FrameConfig;           // local configuration parameters for a frame
 
 typedef int cgif_write_fn(void* pContext, const uint8_t* pData, const size_t numBytes); // callback function for stream-based output
 
 // prototypes
-GIF* cgif_newgif     (GIFConfig* pConfig);              // creates a new GIF (returns pointer to new GIF or NULL on error)
-int  cgif_addframe   (GIF* pGIF, FrameConfig* pConfig); // adds the next frame to an existing GIF (returns 0 on success)
-int  cgif_close      (GIF* pGIF);                     // close file and free allocated memory (returns 0 on success)
+CGIF* cgif_newgif     (CGIF_Config* pConfig);                  // creates a new GIF (returns pointer to new GIF or NULL on error)
+int   cgif_addframe   (CGIF* pGIF, CGIF_FrameConfig* pConfig); // adds the next frame to an existing GIF (returns 0 on success)
+int   cgif_close      (CGIF* pGIF);                          // close file and free allocated memory (returns 0 on success)
 
-// GIFConfig type (parameters passed by user)
+// CGIF_Config type (parameters passed by user)
 // note: must stay AS IS for backward compatibility
 struct st_gifconfig {
   uint8_t*    pGlobalPalette;                            // global color table of the GIF
@@ -46,7 +46,7 @@ struct st_gifconfig {
   void*       pContext;                                  // opaque pointer passed as the first parameter to pWriteFn
 };
 
-// FrameConfig type (parameters passed by user)
+// CGIF_FrameConfig type (parameters passed by user)
 // note: must stay AS IS for backward compatibility
 struct st_frameconfig {
   uint8_t*  pLocalPalette;                             // local color table of a frame
@@ -57,10 +57,10 @@ struct st_frameconfig {
   uint16_t  numLocalPaletteEntries;                    // size of the local color table
 };
 
-// Frame type
+// CGIF_Frame type
 // note: internal sections, subject to change in future versions
 struct st_frame {
-  FrameConfig        config;                             // (internal) configutation parameters of the frame (see above)
+  CGIF_FrameConfig   config;                             // (internal) configutation parameters of the frame (see above)
   struct st_frame*  pBef;                              // (internal) pointer to frame before (needed e.g. for transparency optimization)
   struct st_frame*  pNext;                             // (internal) pointer to next frame
   uint8_t*          pRasterData;                       // (internal) pointer to LZW-data
@@ -77,16 +77,16 @@ struct st_frame {
   uint8_t           initCodeLen;                       // initial length of the LZW-codes in bits (minimum 3, maximum 12)
 };
 
-// GIF type
+// CGIF type
 // note: internal sections, subject to change in future versions
 struct st_gif {
-  GIFConfig config;                                    // (internal) configutation parameters of the GIF (see above)
-  FILE*    pFile;
-  uint8_t  aHeader[13];                              // (internal) header of the GIF
-  uint8_t  aGlobalColorTable[256 * 3];               // (internal) global color table
-  uint8_t  aAppExt[19];                              //
-  Frame*   pCurFrame;                                // (internal) pointer to current frame
-  Frame    firstFrame;                                // (internal) pointer to next frame
+  CGIF_Config config;                                      // (internal) configutation parameters of the GIF (see above)
+  FILE*        pFile;
+  uint8_t      aHeader[13];                              // (internal) header of the GIF
+  uint8_t      aGlobalColorTable[256 * 3];               // (internal) global color table
+  uint8_t      aAppExt[19];                              //
+  CGIF_Frame*  pCurFrame;                                // (internal) pointer to current frame
+  CGIF_Frame   firstFrame;                                // (internal) pointer to next frame
 };
 
 #ifdef __cplusplus
