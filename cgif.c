@@ -479,7 +479,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   hasTransparency = (pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY)    ? 1 : 0;
   // deactivate impossible size optimizations 
   //  => in case the current frame or the frame before use a local-color table or transparency
-  // FRAME_GEN_USE_TRANSPARENCY and FRAME_GEN_USE_DIFF_WINDOW are not possible
+  // CGIF_FRAME_GEN_USE_TRANSPARENCY and CGIF_FRAME_GEN_USE_DIFF_WINDOW are not possible
   if(isFirstFrame || useLocalTable || hasTransparency || (pFrame->pBef->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE)) {
     pFrame->config.genFlags &= ~(CGIF_FRAME_GEN_USE_TRANSPARENCY | CGIF_FRAME_GEN_USE_DIFF_WINDOW);
   }
@@ -513,11 +513,11 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     pFrame->transIndex = pFrame->initDictLen - 1;
   }
 
-  // copy given raw image data into the new FrameConfig, as we might need it in a later stage.
+  // copy given raw image data into the new CGIF_FrameConfig, as we might need it in a later stage.
   pFrame->config.pImageData = malloc(imageWidth * imageHeight); // TBD check return value of malloc
   memcpy(pFrame->config.pImageData, pConfig->pImageData, imageWidth * imageHeight);
 
-  // purge overlap of current frame and frame before (wdith - height optim), if required (FRAME_GEN_USE_DIFF_WINDOW set)
+  // purge overlap of current frame and frame before (wdith - height optim), if required (CGIF_FRAME_GEN_USE_DIFF_WINDOW set)
   if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW) {
     pTmpImageData = doWidthHeightOptim(pFrame, pConfig->pImageData, pFrame->pBef->config.pImageData, imageWidth, imageHeight);
   } else {
@@ -532,7 +532,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   IMAGE_TOP(pFrame->aImageHeader)    = hU16toLE(pFrame->top);
   IMAGE_LEFT(pFrame->aImageHeader)   = hU16toLE(pFrame->left);
 
-  // mark matching areas of the previous frame as transparent, if required (FRAME_GEN_USE_TRANSPARENCY set)
+  // mark matching areas of the previous frame as transparent, if required (CGIF_FRAME_GEN_USE_TRANSPARENCY set)
   if((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) && pGIF->config.numGlobalPaletteEntries < 256) {
     if(pTmpImageData == NULL) {
       pTmpImageData = malloc(imageWidth * imageHeight); // TBD check return value of malloc
