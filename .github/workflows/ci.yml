@@ -31,7 +31,7 @@ jobs:
           ninja-version: "1.10.0.post3"
       - name: Check MD5 hashes
         if: contains(matrix.os, 'ubuntu')
-        run: md5sum build/*.gif | cut -d' ' -f1  > build/curtests.md5 && cut -d' ' -f1 tests/tests.md5 | cmp - build/curtests.md5
+        run: "md5sum build/*.gif | cut -d' ' -f1  > build/curtests.md5 && cut -d' ' -f1 tests/tests.md5 | cmp - build/curtests.md5"
         shell: bash
       - name: Verify test output
         run: for f in build/*.gif; do gifsicle --info $f || exit 1; done
