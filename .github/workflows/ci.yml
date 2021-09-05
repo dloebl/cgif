@@ -29,6 +29,11 @@ jobs:
           action: test
           meson-version: "0.59.0"
           ninja-version: "1.10.0.post3"
+      - name: Check MD5 hashes
+        if: contains(matrix.os, 'ubuntu')
+        working-directory: build
+        run: md5sum -c ../tests/tests.md5
+        shell: bash
       - name: Verify test output
         run: for f in build/*.gif; do gifsicle --info $f || exit 1; done
         shell: bash
