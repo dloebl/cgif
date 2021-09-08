@@ -290,7 +290,7 @@ static void initMainHeader(CGIF* pGIF) {
   if(x) {
     // calculate needed size of global color table
     pow2GlobalPalette = calcNextPower2(pGIF->config.numGlobalPaletteEntries);
-    pow2GlobalPalette = pow2GlobalPalette < 1 ? 1 : pow2GlobalPalette;               // minimum size is 2^1
+    pow2GlobalPalette = ((1 << pow2GlobalPalette) < 2) ? 1 : pow2GlobalPalette;      // minimum size is 2^1
     pGIF->aHeader[HEADER_OFFSET_PACKED_FIELD] |= ((pow2GlobalPalette - 1) << 0);     // set size of global color table
   }
   pGIF->aHeader[HEADER_OFFSET_PACKED_FIELD] |= (0uL << 4);                     // set color resolution (outdated - always zero)
@@ -390,7 +390,7 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
   write(pGIF, pGIF->aHeader, 13);
   if((pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
     pow2GlobalPalette = calcNextPower2(pGIF->config.numGlobalPaletteEntries);
-    pow2GlobalPalette = pow2GlobalPalette < 1 ? 1 : pow2GlobalPalette;               // minimum size is 2^1
+    pow2GlobalPalette = ((1 << pow2GlobalPalette) < 2) ? 1 : pow2GlobalPalette; // minimum size is 2^1
     write(pGIF, pGIF->aGlobalColorTable, 3 << pow2GlobalPalette);
   }
   if(pGIF->config.attrFlags & CGIF_ATTR_IS_ANIMATED) {
