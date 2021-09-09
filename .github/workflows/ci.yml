@@ -35,7 +35,7 @@ jobs:
         run: md5sum -c ../tests/tests.md5
         shell: bash
       - name: Verify test output
-        run: for f in build/*.gif; do gifsicle --info $f || exit 1; done
+        run: for f in build/*.gif; do gifsicle --no-ignore-errors --info $f || exit 1; done
         shell: bash
       - name: Valgrind
         if: contains(matrix.os, 'ubuntu')
