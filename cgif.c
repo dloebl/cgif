@@ -77,8 +77,8 @@ static void add_child(uint16_t* pTree, const uint16_t parentIndex, const uint16_
   pTree[parentIndex * initDictLen + index] = LZWIndex;
 }
 
-/* calculate next power of two of given number (n MUST be <= 256) */
-static uint8_t calcNextPower2(uint16_t n) {
+/* calculate next power of two exponent of given number (n MUST be <= 256) */
+static uint8_t calcNextPower2Ex(uint16_t n) {
   uint8_t nextPow2;
 
   for (nextPow2 = 0; n > (1uL << nextPow2); ++nextPow2);
@@ -89,7 +89,7 @@ static uint8_t calcNextPower2(uint16_t n) {
 static uint8_t calcInitCodeLen(uint16_t numEntries) {
   uint8_t index;
 
-  index = calcNextPower2(numEntries);
+  index = calcNextPower2Ex(numEntries);
   return (index < 3) ? 3 : index + 1;
 }
 
@@ -289,9 +289,9 @@ static void initMainHeader(CGIF* pGIF) {
   pGIF->aHeader[HEADER_OFFSET_PACKED_FIELD] = (x << 7);                        // M = 1 (see GIF specs): Global color map is present
   if(x) {
     // calculate needed size of global color table
-    pow2GlobalPalette = calcNextPower2(pGIF->config.numGlobalPaletteEntries);
-    pow2GlobalPalette = ((1 << pow2GlobalPalette) < 2) ? 1 : pow2GlobalPalette;      // minimum size is 2^1
-    pGIF->aHeader[HEADER_OFFSET_PACKED_FIELD] |= ((pow2GlobalPalette - 1) << 0);     // set size of global color table
+    pow2GlobalPalette = calcNextPower2Ex(pGIF->config.numGlobalPaletteEntries);
+    pow2GlobalPalette = (pow2GlobalPalette < 1) ? 1 : pow2GlobalPalette;      // minimum size is 2^1
+    pGIF->aHeader[HEADER_OFFSET_PACKED_FIELD] |= ((pow2GlobalPalette - 1) << 0);     // set size of global color table (0 - 7 in header + 1)
   }
   pGIF->aHeader[HEADER_OFFSET_PACKED_FIELD] |= (0uL << 4);                     // set color resolution (outdated - always zero)
 }
@@ -389,8 +389,8 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
   }
   write(pGIF, pGIF->aHeader, 13);
   if((pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
-    pow2GlobalPalette = calcNextPower2(pGIF->config.numGlobalPaletteEntries);
-    pow2GlobalPalette = ((1 << pow2GlobalPalette) < 2) ? 1 : pow2GlobalPalette; // minimum size is 2^1
+    pow2GlobalPalette = calcNextPower2Ex(pGIF->config.numGlobalPaletteEntries);
+    pow2GlobalPalette = (pow2GlobalPalette < 1) ? 1 : pow2GlobalPalette; // minimum size is 2^1
     write(pGIF, pGIF->aGlobalColorTable, 3 << pow2GlobalPalette);
   }
   if(pGIF->config.attrFlags & CGIF_ATTR_IS_ANIMATED) {
@@ -512,10 +512,10 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   if(useLocalTable) {
     initLocalColorTable(pFrame);
     // calculate needed size of local color table
-    pow2LocalPalette = calcNextPower2(pFrame->config.numLocalPaletteEntries);
-    pow2LocalPalette = pow2LocalPalette < 1 ? 1 : pow2LocalPalette;            // minimum size is 2^1
+    pow2LocalPalette = calcNextPower2Ex(pFrame->config.numLocalPaletteEntries);
+    pow2LocalPalette = (pow2LocalPalette < 1) ? 1 : pow2LocalPalette;            // minimum size is 2^1
     IMAGE_PACKED_FIELD(pFrame->aImageHeader)  = (1 << 7);
-    IMAGE_PACKED_FIELD(pFrame->aImageHeader) |= ((pow2LocalPalette - 1) << 0); // set size of local color table
+    IMAGE_PACKED_FIELD(pFrame->aImageHeader) |= ((pow2LocalPalette - 1) << 0); // set size of local color table (0 - 7 in header + 1)
   }
 
   // check if we need to increase the initial code length in order to allow the transparency optim.
