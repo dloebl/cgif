@@ -495,7 +495,11 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   if(isFirstFrame || useLocalTable || hasTransparency || (pFrame->pBef->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE)) {
     pFrame->config.genFlags &= ~(CGIF_FRAME_GEN_USE_TRANSPARENCY | CGIF_FRAME_GEN_USE_DIFF_WINDOW);
   }
-
+  // switch off transparency optimization if color table is full (such that there is no free spot for the transparent index)
+  if(pGIF->config.numGlobalPaletteEntries == 256){
+    pFrame->config.genFlags &= ~CGIF_FRAME_GEN_USE_TRANSPARENCY;
+  }
+  
   // set Frame header to a clean state
   memset(pFrame->aImageHeader, 0, sizeof(pFrame->aImageHeader));
 
@@ -519,9 +523,8 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   }
 
   // check if we need to increase the initial code length in order to allow the transparency optim.
-  // note: In case the palette is full (256 entries) this optim is not possible
   if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) {
-    if(pFrame->initDictLen == pGIF->config.numGlobalPaletteEntries && pGIF->config.numGlobalPaletteEntries < 256) {
+    if(pFrame->initDictLen == pGIF->config.numGlobalPaletteEntries) {
       ++(pFrame->initCodeLen);
       pFrame->initDictLen = 1uL << (pFrame->initCodeLen - 1);
     }
@@ -548,7 +551,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   IMAGE_LEFT(pFrame->aImageHeader)   = hU16toLE(pFrame->left);
 
   // mark matching areas of the previous frame as transparent, if required (CGIF_FRAME_GEN_USE_TRANSPARENCY set)
-  if((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) && pGIF->config.numGlobalPaletteEntries < 256) {
+  if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) {
     if(pTmpImageData == NULL) {
       pTmpImageData = malloc(imageWidth * imageHeight); // TBD check return value of malloc
       memcpy(pTmpImageData, pConfig->pImageData, imageWidth * imageHeight);
@@ -564,7 +567,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   }
 
   // generate LZW raster data (actual image data)
-  if(((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) &&  pGIF->config.numGlobalPaletteEntries < 256) || (pFrame->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW)) {
+  if((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) || (pFrame->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW)) {
     pFrame->pRasterData = LZW_GenerateStream(pFrame, pFrame->width * pFrame->height, pTmpImageData);
     free(pTmpImageData);
   } else {
@@ -592,8 +595,8 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     } else {
       pFrame->aGraphicExt[3] = 0x04; // leave previous frame
     }
-    if(((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) && pGIF->config.numGlobalPaletteEntries < 256) || hasTransparency) {
-      pFrame->aGraphicExt[3] |= 0x01;
+    if((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) || hasTransparency) {
+      pFrame->aGraphicExt[3] |= 0x01; // set flag indicating that transparency is used
     }
     pFrame->aGraphicExt[6] = pFrame->transIndex;
     GEXT_DELAY(pFrame->aGraphicExt) = hU16toLE(pConfig->delay); // set delay
