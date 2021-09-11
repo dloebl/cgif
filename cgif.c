@@ -592,7 +592,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     } else {
       pFrame->aGraphicExt[3] = 0x04; // leave previous frame
     }
-    if((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) || hasTransparency) {
+    if(((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) && pGIF->config.numGlobalPaletteEntries < 256) || hasTransparency) {
       pFrame->aGraphicExt[3] |= 0x01;
     }
     pFrame->aGraphicExt[6] = pFrame->transIndex;

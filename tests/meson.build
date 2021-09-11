@@ -1,5 +1,6 @@
 tests = [
   'all_optim',
+  'animated_color_gradient',
   'animated_single_pixel',
   'animated_snake',
   'animated_stripes_horizontal',
