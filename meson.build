@@ -8,6 +8,8 @@ project(
 lib = library(
   'cgif',
   'cgif.c',
+  soversion : '0',
+  version : '0.0.1',
   install : true,
 )
 
