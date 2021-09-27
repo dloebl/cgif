@@ -16,7 +16,7 @@ A fast and lightweight GIF encoder that can create GIF animations and images. Su
 To get started, we suggest that you have a look at our code examples. ```cgif_example_video.c``` is an example that creates a GIF animation. ```cgif_example.c``` is an example for a static GIF image.
 
 ## Overview
-To get an overview of the API, we recommend having a look into our wiki (https://github.com/dloebl/cgif/wiki/General-API) where types and functions are described. The corresponding implementations can be found in ```cgif.c```. Here the most important types and functions:
+To get an overview of the API, we recommend having a look at our wiki (https://github.com/dloebl/cgif/wiki/General-API) where types and functions are described. The corresponding implementations can be found in ```cgif.c```. Here the most important types and functions:
 
 ```C
 // These are the four struct types that contain all GIF data and parameters:
