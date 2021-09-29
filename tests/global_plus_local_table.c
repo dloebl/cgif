@@ -52,7 +52,7 @@ int main(void) {
   //
   // add next frame
   fConfig.attrFlags = 0;
-  fConfig.genFlags = CGIF_FRAME_GEN_USE_TRANSPARENCY;
+  fConfig.genFlags = 0;
   memset(pImageData + WIDTH * 9, 2, WIDTH * 10);
   cgif_addframe(pGIF, &fConfig); // append the new frame
   //
