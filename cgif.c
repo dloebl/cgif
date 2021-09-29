@@ -519,12 +519,12 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   useLocalTable   = (pFrame->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
   hasTransparency = (pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY)    ? 1 : 0;
   // deactivate impossible size optimizations 
-  //  => in case the current frame or the frame before use a local-color table or transparency
+  //  => in case user-defined transparency is used
   // CGIF_FRAME_GEN_USE_TRANSPARENCY and CGIF_FRAME_GEN_USE_DIFF_WINDOW are not possible
   if(isFirstFrame || hasTransparency) {
     pFrame->config.genFlags &= ~(CGIF_FRAME_GEN_USE_TRANSPARENCY | CGIF_FRAME_GEN_USE_DIFF_WINDOW);
   }
-  // switch off transparency optimization if color table is full (such that there is no free spot for the transparent index)
+  // switch off transparency optimization if color table is full (no free spot for the transparent index), TBD: count used colors, adapt table
   if(pGIF->config.numGlobalPaletteEntries == 256){
     pFrame->config.genFlags &= ~CGIF_FRAME_GEN_USE_TRANSPARENCY;
   }
