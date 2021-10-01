@@ -399,18 +399,39 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
   return pGIF;
 }
 
+/* compare given pixel indices using the correct local or global color table; returns 0 if the two pixels are RGB equal */
+static int cmpPixel(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef, const uint8_t iCur, const uint8_t iBef) {
+  uint8_t* pBefCT; // color table to use for pBef
+  uint8_t* pCurCT; // color table to use for pCur
+
+  // TBD add safety checks
+  pBefCT = (pBef->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pBef->aLocalColorTable : pGIF->aGlobalColorTable; // local or global table used?
+  pCurCT = (pCur->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pCur->aLocalColorTable : pGIF->aGlobalColorTable; // local or global table used?
+  return memcmp(pBefCT + iBef * 3, pCurCT + iCur * 3, 3);
+}
+
 /* optimize GIF file size by only redrawing the rectangular area that differs from previous frame */
-static uint8_t* doWidthHeightOptim(CGIF_Frame* pFrame, uint8_t const* pCurImageData, uint8_t const* pBefImageData, const uint16_t width, const uint16_t height) {
+static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_Frame* pFrame, uint8_t const* pCurImageData, uint8_t const* pBefImageData, const uint16_t width, const uint16_t height) {
   uint8_t* pNewImageData;
   uint16_t i, x;
   uint16_t newHeight, newWidth, newLeft, newTop;
+  uint8_t iCur, iBef;
 
   // find top 
   i = 0;
-  while(i < height && memcmp(pCurImageData + i * width, pBefImageData + i * width, width) == 0) {
+  while(i < height) {
+    for(int c = 0; c < width; ++c) {
+      iCur = *(pCurImageData + i * width + c);
+      iBef = *(pBefImageData + i * width + c);
+      if(cmpPixel(pGIF, pFrame, pFrame->pBef, iCur, iBef) != 0) {
+        goto FoundTop;
+      }
+    }
     ++i;
   }
+FoundTop:
   if(i == height) { // need dummy pixel (frame is identical with one before)
+    // TBD we might make it possible to merge identical frames in the future
     newWidth  = 1;
     newHeight = 1;
     newLeft   = 0;
@@ -421,15 +442,23 @@ static uint8_t* doWidthHeightOptim(CGIF_Frame* pFrame, uint8_t const* pCurImageD
   
   // find actual height
   i = height - 1;
-  while(i > newTop && memcmp(pCurImageData + i * width, pBefImageData + i * width, width) == 0) {
+  while(i > newTop) {
+    for(int c = 0; c < width; ++c) {
+      iCur = *(pCurImageData + i * width + c);
+      iBef = *(pBefImageData + i * width + c);
+      if(cmpPixel(pGIF, pFrame, pFrame->pBef, iCur, iBef) != 0) {
+        goto FoundHeight;
+      }
+    }
     --i;
   }
+FoundHeight:
   newHeight = (i + 1) - newTop;
 
   // find left
   i = newTop;
   x = 0;
-  while(pCurImageData[i * width + x] == pBefImageData[i * width + x]) {
+  while(cmpPixel(pGIF, pFrame, pFrame->pBef, pCurImageData[i * width + x], pBefImageData[i * width + x]) == 0) {
     ++i;
     if(i > (newTop + newHeight - 1)) {
       ++x; //(x==width cannot happen as goto Done is triggered in the only possible case before)
@@ -441,7 +470,7 @@ static uint8_t* doWidthHeightOptim(CGIF_Frame* pFrame, uint8_t const* pCurImageD
   // find actual width
   i = newTop;
   x = width - 1;
-  while(pCurImageData[i * width + x] == pBefImageData[i * width + x]) {
+  while(cmpPixel(pGIF, pFrame, pFrame->pBef, pCurImageData[i * width + x], pBefImageData[i * width + x]) == 0) {
     ++i;
     if(i > (newTop + newHeight - 1)) {
       --x; //(x<newLeft cannot happen as goto Done is triggered in the only possible case before)
@@ -490,12 +519,12 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   useLocalTable   = (pFrame->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
   hasTransparency = (pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY)    ? 1 : 0;
   // deactivate impossible size optimizations 
-  //  => in case the current frame or the frame before use a local-color table or transparency
+  //  => in case user-defined transparency is used
   // CGIF_FRAME_GEN_USE_TRANSPARENCY and CGIF_FRAME_GEN_USE_DIFF_WINDOW are not possible
-  if(isFirstFrame || useLocalTable || hasTransparency || (pFrame->pBef->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE)) {
+  if(isFirstFrame || hasTransparency) {
     pFrame->config.genFlags &= ~(CGIF_FRAME_GEN_USE_TRANSPARENCY | CGIF_FRAME_GEN_USE_DIFF_WINDOW);
   }
-  // switch off transparency optimization if color table is full (such that there is no free spot for the transparent index)
+  // switch off transparency optimization if color table is full (no free spot for the transparent index), TBD: count used colors, adapt table
   if(pGIF->config.numGlobalPaletteEntries == 256){
     pFrame->config.genFlags &= ~CGIF_FRAME_GEN_USE_TRANSPARENCY;
   }
@@ -523,8 +552,9 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   }
 
   // check if we need to increase the initial code length in order to allow the transparency optim.
+  // TBD revert this in case no transparency is possible
   if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) {
-    if(pFrame->initDictLen == pGIF->config.numGlobalPaletteEntries) {
+    if(pFrame->initDictLen == (useLocalTable ? pFrame->config.numLocalPaletteEntries : pGIF->config.numGlobalPaletteEntries)) {
       ++(pFrame->initCodeLen);
       pFrame->initDictLen = 1uL << (pFrame->initCodeLen - 1);
     }
@@ -537,7 +567,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
 
   // purge overlap of current frame and frame before (wdith - height optim), if required (CGIF_FRAME_GEN_USE_DIFF_WINDOW set)
   if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW) {
-    pTmpImageData = doWidthHeightOptim(pFrame, pConfig->pImageData, pFrame->pBef->config.pImageData, imageWidth, imageHeight);
+    pTmpImageData = doWidthHeightOptim(pGIF, pFrame, pConfig->pImageData, pFrame->pBef->config.pImageData, imageWidth, imageHeight);
   } else {
     pFrame->width                      = imageWidth;
     pFrame->height                     = imageHeight;
@@ -559,7 +589,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     pBefImageData = pFrame->pBef->config.pImageData;
     for(i = 0; i < pFrame->height; ++i) {
       for(x = 0; x < pFrame->width; ++x) {
-        if(pTmpImageData[i * pFrame->width + x] == pBefImageData[((pFrame->top + i) * imageWidth) + (pFrame->left + x)]) {
+        if(cmpPixel(pGIF, pFrame, pFrame->pBef, pTmpImageData[i * pFrame->width + x], pBefImageData[((pFrame->top + i) * imageWidth) + (pFrame->left + x)]) == 0) {
           pTmpImageData[i * pFrame->width + x] = pFrame->transIndex;
         }
       }
