@@ -57,6 +57,12 @@ With the provided tests you can validate that the encoder still generates correc
 ## Further explanations
 The GIF format employs the [Lempel-Ziv-Welch (LZW)](https://en.wikipedia.org/wiki/Lempel%E2%80%93Ziv%E2%80%93Welch) algorithm for image compression. If you are interested in details of the GIF format, please have a look at the official GIF documentation (https://www.w3.org/Graphics/GIF/spec-gif89a.txt).
 
+## Versioning scheme
+Releases of cgif follow the semantic versioning scheme as described here: [semver.org](https://semver.org/)
+
+The following additional guarantees are provided:
+* Public API of versions 0.x.x are stable.
+
 ## License
 Licensed under the MIT license (permissive).
 For more details please see ```LICENSE```
