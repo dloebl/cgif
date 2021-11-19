@@ -39,12 +39,9 @@
 #define MAX_DICT_LEN    (1uL << MAX_CODE_LEN) // maximum length of the dictionary
 #define BLOCK_SIZE      0xFF                  // number of bytes in one block of the image data
 
-// defines that effect the list representation of the LZW tree
-#define MAX_LIST_LEN 4
-
 typedef struct {
-  uint16_t*       pTreeList;  // LZW dictionary tree as list (max. number of children per node = MAX_LIST_LEN)
-  uint16_t*       pTreeMap;   // LZW dictionary tree as map (backup to pTreeList in case more than MAX_LIST_LEN children are present)
+  uint16_t*       pTreeList;  // LZW dictionary tree as list (max. number of children per node = 1)
+  uint16_t*       pTreeMap;   // LZW dictionary tree as map (backup to pTreeList in case more than 1 child is present)
   uint16_t*       pLZWData;   // pointer to LZW data
   const uint8_t*  pImageData; // pointer to image data
   uint32_t        numPixel;   // number of pixels per frame
@@ -76,30 +73,30 @@ static void resetDict(LZWGenState* pContext, const uint16_t initDictLen) {
   pContext->pLZWData[pContext->LZWPos] = initDictLen;                                 // issue clear-code
   ++(pContext->LZWPos);                                                               // increment position in LZW data
   // reset LZW list
-  memset(pContext->pTreeList, 0, ((sizeof(uint16_t) * 2) * MAX_LIST_LEN + sizeof(uint16_t)) * MAX_DICT_LEN);
+  memset(pContext->pTreeList, 0, ((sizeof(uint16_t) * 2) + sizeof(uint16_t)) * MAX_DICT_LEN);
 }
 
 /* add new child node */
-static void add_child(LZWGenState* pContext, const int i, const uint16_t parentIndex, const uint16_t LZWIndex, const uint16_t initDictLen, const uint8_t index) {
+static void add_child(LZWGenState* pContext, const uint16_t parentIndex, const uint16_t LZWIndex, const uint16_t initDictLen, const uint8_t index) {
   uint16_t* pTreeList;
   uint16_t  mapPos;
 
   pTreeList = pContext->pTreeList;
-  mapPos    = pTreeList[parentIndex * (MAX_LIST_LEN * 2 + 1)];
+  mapPos    = pTreeList[parentIndex * (2 + 1)];
   if(!mapPos) {
     // no free child? - we need to switch to the backup LZW mapping
-    if(i == MAX_LIST_LEN) {
+    if(pTreeList[parentIndex * (2 + 1) + 2]) {
       mapPos = pContext->mapPos;
       // add child to mapping table
       memset(pContext->pTreeMap + ((mapPos - 1) * initDictLen), 0, initDictLen * sizeof(uint16_t));
       pContext->pTreeMap[(mapPos - 1) * initDictLen + index] = LZWIndex;
-      pTreeList[parentIndex * (MAX_LIST_LEN * 2 + 1)]  = mapPos;
+      pTreeList[parentIndex * (2 + 1)]  = mapPos;
       ++(pContext->mapPos);
     } else {
       // value = index
       // next  = LZWIndex
-      pTreeList[parentIndex * (MAX_LIST_LEN * 2 + 1) + (i * 2) + 1] = index;
-      pTreeList[parentIndex * (MAX_LIST_LEN * 2 + 1) + (i * 2) + 2] = LZWIndex;
+      pTreeList[parentIndex * (2 + 1) + 1] = index;
+      pTreeList[parentIndex * (2 + 1) + 2] = LZWIndex;
     }
   } else {
     pContext->pTreeMap[(mapPos - 1) * initDictLen + index] = LZWIndex;
@@ -125,46 +122,38 @@ static uint8_t calcInitCodeLen(uint16_t numEntries) {
 
 /* find next LZW code representing the longest pixel sequence that is still in the dictionary*/
 static uint32_t lzw_crawl_tree(LZWGenState* pContext, uint32_t strPos, uint16_t parentIndex, const uint16_t initDictLen) {
-  int      i;
-  int      bStillInDict;
-  uint16_t nextParent;
-  uint16_t mapPos;
+  uint16_t* pTreeList;
+  uint16_t  nextParent;
+  uint16_t  mapPos;
 
+  pTreeList = pContext->pTreeList;
   while(strPos < (pContext->numPixel - 1)) {
     // first try to find child in LZW list
-    bStillInDict = 0;
-    for(i = 0; i < MAX_LIST_LEN && pContext->pTreeList[parentIndex * (MAX_LIST_LEN * 2 + 1) + (i * 2) + 2]; ++i) {
-      if(pContext->pTreeList[parentIndex * (MAX_LIST_LEN * 2 + 1) + (i * 2) + 1] == pContext->pImageData[strPos + 1]) {
-        parentIndex = pContext->pTreeList[parentIndex * (MAX_LIST_LEN * 2 + 1) + (i * 2) + 2];
-        ++strPos;
-        bStillInDict = 1;
-        break;
-      }
+    if(pTreeList[parentIndex * (2 + 1) + 2] && pTreeList[parentIndex * (2 + 1) + 1] == pContext->pImageData[strPos + 1]) {
+      parentIndex = pTreeList[parentIndex * (2 + 1) + 2];
+      ++strPos;
+      continue;
     }
     // not found child yet? try to look into the LZW mapping table
-    if(!bStillInDict) {
-      mapPos = pContext->pTreeList[parentIndex * (MAX_LIST_LEN * 2 + 1)];
-      if(mapPos) {
-        nextParent = pContext->pTreeMap[(mapPos - 1) * initDictLen + pContext->pImageData[strPos + 1]];
-        if(nextParent) {
-          parentIndex = nextParent;
-          ++strPos;
-          bStillInDict = 1;
-        }
+    mapPos = pContext->pTreeList[parentIndex * (2 + 1)];
+    if(mapPos) {
+      nextParent = pContext->pTreeMap[(mapPos - 1) * initDictLen + pContext->pImageData[strPos + 1]];
+      if(nextParent) {
+        parentIndex = nextParent;
+        ++strPos;
+        continue;
       }
     }
     // still not found child? add current parentIndex to LZW data and add new child
-    if(!bStillInDict) {
-      pContext->pLZWData[pContext->LZWPos] = parentIndex; // write last LZW code in LZW data
-      ++(pContext->LZWPos);
-      if(pContext->dictPos < MAX_DICT_LEN) { // if LZW-dictionary is not full yet
-        add_child(pContext, i, parentIndex, pContext->dictPos, initDictLen, pContext->pImageData[strPos + 1]); // add new LZW code to dictionary
-      } else {
-        // the dictionary reached its maximum code => reset it (not required by GIF-standard but mostly done like this)
-        resetDict(pContext, initDictLen);
-      }
-      return strPos + 1;
+    pContext->pLZWData[pContext->LZWPos] = parentIndex; // write last LZW code in LZW data
+    ++(pContext->LZWPos);
+    if(pContext->dictPos < MAX_DICT_LEN) { // if LZW-dictionary is not full yet
+      add_child(pContext, parentIndex, pContext->dictPos, initDictLen, pContext->pImageData[strPos + 1]); // add new LZW code to dictionary
+    } else {
+      // the dictionary reached its maximum code => reset it (not required by GIF-standard but mostly done like this)
+      resetDict(pContext, initDictLen);
     }
+    return strPos + 1;
   }
   pContext->pLZWData[pContext->LZWPos] = parentIndex; // if the end of the image is reached, write last LZW code
   ++(pContext->LZWPos);
@@ -269,8 +258,8 @@ static uint8_t* LZW_GenerateStream(CGIF_Frame* pFrame, const uint32_t numPixel, 
   uint32_t     bytePosBlock;
   // TBD recycle LZW tree list and map (if possible) to decrease the number of allocs
   pContext             = malloc(sizeof(LZWGenState)); // TBD check return value of malloc
-  pContext->pTreeList  = malloc(((sizeof(uint16_t) * 2) * MAX_LIST_LEN + sizeof(uint16_t)) * MAX_DICT_LEN); // TBD check return value of malloc
-  pContext->pTreeMap   = malloc(((MAX_DICT_LEN / (MAX_LIST_LEN + 1)) + 1) * (pFrame->initDictLen * sizeof(uint16_t))); // TBD check return value of malloc; TBD check size
+  pContext->pTreeList  = malloc(((sizeof(uint16_t) * 2) + sizeof(uint16_t)) * MAX_DICT_LEN); // TBD check return value of malloc
+  pContext->pTreeMap   = malloc(((MAX_DICT_LEN / 2) + 1) * (pFrame->initDictLen * sizeof(uint16_t))); // TBD check return value of malloc
   pContext->numPixel   = numPixel;
   pContext->pImageData = pImageData;
   pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2)); // TBD check return value of malloc
