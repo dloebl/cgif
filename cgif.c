@@ -77,29 +77,26 @@ static void resetDict(LZWGenState* pContext, const uint16_t initDictLen) {
 }
 
 /* add new child node */
-static void add_child(LZWGenState* pContext, const uint16_t parentIndex, const uint16_t LZWIndex, const uint16_t initDictLen, const uint8_t index) {
+static void add_child(LZWGenState* pContext, const uint16_t parentIndex, const uint16_t LZWIndex, const uint16_t initDictLen, const uint8_t nextColor) {
   uint16_t* pTreeList;
   uint16_t  mapPos;
 
   pTreeList = pContext->pTreeList;
   mapPos    = pTreeList[parentIndex * (2 + 1)];
-  if(!mapPos) {
-    // no free child? - we need to switch to the backup LZW mapping
-    if(pTreeList[parentIndex * (2 + 1) + 2]) {
+  if(!mapPos) { // if pTreeMap is not used yet for the parent node
+    if(pTreeList[parentIndex * (2 + 1) + 2]) { // if at least one child node exists, switch to pTreeMap
       mapPos = pContext->mapPos;
-      // add child to mapping table
+      // add child to mapping table (pTreeMap)
       memset(pContext->pTreeMap + ((mapPos - 1) * initDictLen), 0, initDictLen * sizeof(uint16_t));
-      pContext->pTreeMap[(mapPos - 1) * initDictLen + index] = LZWIndex;
+      pContext->pTreeMap[(mapPos - 1) * initDictLen + nextColor] = LZWIndex;
       pTreeList[parentIndex * (2 + 1)]  = mapPos;
       ++(pContext->mapPos);
-    } else {
-      // value = index
-      // next  = LZWIndex
-      pTreeList[parentIndex * (2 + 1) + 1] = index;
-      pTreeList[parentIndex * (2 + 1) + 2] = LZWIndex;
+    } else { // use the free spot in pTreeList for the child node
+      pTreeList[parentIndex * (2 + 1) + 1] = nextColor; // color that leads to child node
+      pTreeList[parentIndex * (2 + 1) + 2] = LZWIndex; // position of child node
     }
-  } else {
-    pContext->pTreeMap[(mapPos - 1) * initDictLen + index] = LZWIndex;
+  } else { // directly add child node to pTreeMap
+    pContext->pTreeMap[(mapPos - 1) * initDictLen + nextColor] = LZWIndex;
   }
   ++(pContext->dictPos); // increase current position in the dictionary
 }
