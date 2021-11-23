@@ -129,7 +129,7 @@ static uint32_t lzw_crawl_tree(LZWGenState* pContext, uint32_t strPos, uint16_t 
   pTreeInit = pContext->pTreeInit;
   pTreeList = pContext->pTreeList;
   // get the next LZW code from pTreeInit:
-  // the initial nodes (0-255 max) do have more childs in average.
+  // the initial nodes (0-255 max) have more children on average.
   // use the mapping approach right from the start for these nodes.
   if(strPos < (pContext->numPixel - 1)) {
     nextParent = pTreeInit[parentIndex * initDictLen + pContext->pImageData[strPos + 1]];
@@ -282,7 +282,7 @@ static uint8_t* LZW_GenerateStream(CGIF_Frame* pFrame, const uint32_t numPixel, 
   pContext             = malloc(sizeof(LZWGenState)); // TBD check return value of malloc
   pContext->pTreeInit  = malloc((pFrame->initDictLen * sizeof(uint16_t)) * pFrame->initDictLen); // TBD check return value of malloc
   pContext->pTreeList  = malloc(((sizeof(uint16_t) * 2) + sizeof(uint16_t)) * MAX_DICT_LEN); // TBD check return value of malloc TBD check size
-  pContext->pTreeMap   = malloc((((MAX_DICT_LEN) / 2) + 1) * (pFrame->initDictLen * sizeof(uint16_t))); // TBD check return value of malloc
+  pContext->pTreeMap   = malloc(((MAX_DICT_LEN / 2) + 1) * (pFrame->initDictLen * sizeof(uint16_t))); // TBD check return value of malloc
   pContext->numPixel   = numPixel;
   pContext->pImageData = pImageData;
   pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2)); // TBD check return value of malloc
