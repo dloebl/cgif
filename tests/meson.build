@@ -12,6 +12,8 @@ tests = [
   'has_transparency_2',
   'max_color_table_test',
   'min_color_table_test',
+  'noise256',
+  'noise6',
   'only_local_table',
   'overlap_everything',
   'overlap_some_rows',
