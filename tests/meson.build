@@ -12,6 +12,7 @@ tests = [
   'has_transparency_2',
   'max_color_table_test',
   'min_color_table_test',
+  'min_size',
   'noise256',
   'noise6',
   'only_local_table',
