@@ -10,7 +10,9 @@ a8c2e6153396de90eaa1947178b1e383  animated_stripe_pattern.gif
 3eda7f993b36270db09929a289a5a106  has_transparency_2.gif
 c8bc7f745090e5f386e2c69f697c1343  has_transparency.gif
 8c0e65694eef4f3ed986381cfe914b50  max_color_table_test.gif
+# too large for CI: dd8cb01f5b02c16cc346b51d1faadc63  max_size.gif
 30ab701c8e56bc8b09c824305002de5a  min_color_table_test.gif
+f2bfeb47a7ecc834ae21140f02c60297  min_size.gif
 a7c04cb7b6d19a16023497da03384408  only_local_table.gif
 013513307101f1d6b80164cdb3318c1c  overlap_everything.gif
 e9e789738541e15028dfe2abdbc67314  overlap_some_rows.gif
