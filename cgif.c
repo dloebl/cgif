@@ -39,6 +39,8 @@
 #define MAX_DICT_LEN    (1uL << MAX_CODE_LEN) // maximum length of the dictionary
 #define BLOCK_SIZE      0xFF                  // number of bytes in one block of the image data
 
+#define MULU16(a, b) (((uint32_t)a) * ((uint32_t)b)) // helper macro to correctly multiply two U16's without default signed int promotion
+
 typedef struct {
   uint16_t*       pTree;      // complete LZW dictionary tree in one block
   uint16_t*       pLZWData;   // pointer to LZW data
@@ -421,8 +423,8 @@ static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_Frame* pFrame, uint8_t const
   i = 0;
   while(i < height) {
     for(int c = 0; c < width; ++c) {
-      iCur = *(pCurImageData + i * width + c);
-      iBef = *(pBefImageData + i * width + c);
+      iCur = *(pCurImageData + MULU16(i, width) + c);
+      iBef = *(pBefImageData + MULU16(i, width) + c);
       if(cmpPixel(pGIF, pFrame, pFrame->pBef, iCur, iBef) != 0) {
         goto FoundTop;
       }
@@ -444,8 +446,8 @@ FoundTop:
   i = height - 1;
   while(i > newTop) {
     for(int c = 0; c < width; ++c) {
-      iCur = *(pCurImageData + i * width + c);
-      iBef = *(pBefImageData + i * width + c);
+      iCur = *(pCurImageData + MULU16(i, width) + c);
+      iBef = *(pBefImageData + MULU16(i, width) + c);
       if(cmpPixel(pGIF, pFrame, pFrame->pBef, iCur, iBef) != 0) {
         goto FoundHeight;
       }
@@ -458,7 +460,7 @@ FoundHeight:
   // find left
   i = newTop;
   x = 0;
-  while(cmpPixel(pGIF, pFrame, pFrame->pBef, pCurImageData[i * width + x], pBefImageData[i * width + x]) == 0) {
+  while(cmpPixel(pGIF, pFrame, pFrame->pBef, pCurImageData[MULU16(i, width) + x], pBefImageData[MULU16(i, width) + x]) == 0) {
     ++i;
     if(i > (newTop + newHeight - 1)) {
       ++x; //(x==width cannot happen as goto Done is triggered in the only possible case before)
@@ -470,7 +472,7 @@ FoundHeight:
   // find actual width
   i = newTop;
   x = width - 1;
-  while(cmpPixel(pGIF, pFrame, pFrame->pBef, pCurImageData[i * width + x], pBefImageData[i * width + x]) == 0) {
+  while(cmpPixel(pGIF, pFrame, pFrame->pBef, pCurImageData[MULU16(i, width) + x], pBefImageData[MULU16(i, width) + x]) == 0) {
     ++i;
     if(i > (newTop + newHeight - 1)) {
       --x; //(x<newLeft cannot happen as goto Done is triggered in the only possible case before)
@@ -482,9 +484,9 @@ FoundHeight:
 Done:
 
   // create new image data
-  pNewImageData = malloc(newWidth * newHeight); // TBD check return value of malloc
+  pNewImageData = malloc(MULU16(newWidth, newHeight)); // TBD check return value of malloc
   for (i = 0; i < newHeight; ++i) {
-    memcpy(pNewImageData + i * newWidth, pCurImageData + (i + newTop) * width + newLeft, newWidth);
+    memcpy(pNewImageData + MULU16(i, newWidth), pCurImageData + MULU16((i + newTop), width) + newLeft, newWidth);
   }
   
   // set new width, height, top, left in Frame struct
@@ -562,8 +564,8 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   }
 
   // copy given raw image data into the new CGIF_FrameConfig, as we might need it in a later stage.
-  pFrame->config.pImageData = malloc(imageWidth * imageHeight); // TBD check return value of malloc
-  memcpy(pFrame->config.pImageData, pConfig->pImageData, imageWidth * imageHeight);
+  pFrame->config.pImageData = malloc(MULU16(imageWidth, imageHeight)); // TBD check return value of malloc
+  memcpy(pFrame->config.pImageData, pConfig->pImageData, MULU16(imageWidth, imageHeight));
 
   // purge overlap of current frame and frame before (wdith - height optim), if required (CGIF_FRAME_GEN_USE_DIFF_WINDOW set)
   if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW) {
@@ -583,14 +585,14 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   // mark matching areas of the previous frame as transparent, if required (CGIF_FRAME_GEN_USE_TRANSPARENCY set)
   if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) {
     if(pTmpImageData == NULL) {
-      pTmpImageData = malloc(imageWidth * imageHeight); // TBD check return value of malloc
-      memcpy(pTmpImageData, pConfig->pImageData, imageWidth * imageHeight);
+      pTmpImageData = malloc(MULU16(imageWidth, imageHeight)); // TBD check return value of malloc
+      memcpy(pTmpImageData, pConfig->pImageData, MULU16(imageWidth, imageHeight));
     }
     pBefImageData = pFrame->pBef->config.pImageData;
     for(i = 0; i < pFrame->height; ++i) {
       for(x = 0; x < pFrame->width; ++x) {
-        if(cmpPixel(pGIF, pFrame, pFrame->pBef, pTmpImageData[i * pFrame->width + x], pBefImageData[((pFrame->top + i) * imageWidth) + (pFrame->left + x)]) == 0) {
-          pTmpImageData[i * pFrame->width + x] = pFrame->transIndex;
+        if(cmpPixel(pGIF, pFrame, pFrame->pBef, pTmpImageData[MULU16(i, pFrame->width) + x], pBefImageData[MULU16(pFrame->top + i, imageWidth) + (pFrame->left + x)]) == 0) {
+          pTmpImageData[MULU16(i, pFrame->width) + x] = pFrame->transIndex;
         }
       }
     }
@@ -598,10 +600,10 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
 
   // generate LZW raster data (actual image data)
   if((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) || (pFrame->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW)) {
-    pFrame->pRasterData = LZW_GenerateStream(pFrame, pFrame->width * pFrame->height, pTmpImageData);
+    pFrame->pRasterData = LZW_GenerateStream(pFrame, MULU16(pFrame->width, pFrame->height), pTmpImageData);
     free(pTmpImageData);
   } else {
-    pFrame->pRasterData = LZW_GenerateStream(pFrame, imageWidth * imageHeight, pConfig->pImageData);
+    pFrame->pRasterData = LZW_GenerateStream(pFrame, MULU16(imageWidth, imageHeight), pConfig->pImageData);
   }
 
   // cleanup
