@@ -15,9 +15,12 @@ tests = [
   'min_size',
   'noise256',
   'noise6',
+  'one_full_block',
   'only_local_table',
   'overlap_everything',
+  'overlap_everything_only_trans',
   'overlap_some_rows',
+  'trans_inc_initdict',
   'write_fn',
 ]
 

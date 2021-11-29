@@ -8,7 +8,7 @@
 #define WIDTH  100
 #define HEIGHT 100
 
-/* This is an example code that creates a GIF-animation with two identical black frames in sequence, using CGIF_FRAME_GEN_USE_DIFF_WINDOW*/
+/* This is an example code that creates a GIF-animation with two identical black frames in sequence, using CGIF_FRAME_GEN_USE_TRANSPARENCY*/
 int main(void) {
   CGIF*         pGIF;
   CGIF_Config     gConfig;
@@ -30,7 +30,7 @@ int main(void) {
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
   gConfig.numGlobalPaletteEntries = numColors;
-  gConfig.path                    = "overlap_everything.gif";
+  gConfig.path                    = "overlap_everything_only_trans.gif";
   pGIF = cgif_newgif(&gConfig);
   //
   // Add frames to GIF
@@ -39,7 +39,7 @@ int main(void) {
   memset(pImageData, 0, WIDTH * HEIGHT); 
   fConfig.pImageData = pImageData;
   fConfig.delay      = 100;  // set time before next frame (in units of 0.01 s)
-  fConfig.genFlags   = CGIF_FRAME_GEN_USE_DIFF_WINDOW;
+  fConfig.genFlags   = CGIF_FRAME_GEN_USE_TRANSPARENCY;
   cgif_addframe(pGIF, &fConfig); // append the new frame
   cgif_addframe(pGIF, &fConfig); // append the next frame
   //
