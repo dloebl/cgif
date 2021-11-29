@@ -7,6 +7,7 @@
 #define WIDTH  200
 #define HEIGHT 200
 
+/* This is an example code that creates a moving stripe pattern. Special case: using CGIF_FRAME_GEN_USE_TRANSPARENCY requires increasing color table to next power of 2*/
 int main(void) {
   CGIF*          pGIF;
   CGIF_Config      gConfig;

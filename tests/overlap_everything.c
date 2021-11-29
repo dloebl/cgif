@@ -8,7 +8,7 @@
 #define WIDTH  100
 #define HEIGHT 100
 
-/* This is an example code that creates a GIF-animation with a moving stripe-pattern. */
+/* This is an example code that creates a GIF-animation with two identical black frames in sequence, using CGIF_FRAME_GEN_USE_DIFF_WINDOW*/
 int main(void) {
   CGIF*         pGIF;
   CGIF_Config     gConfig;

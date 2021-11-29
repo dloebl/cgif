@@ -5,7 +5,7 @@
 #include "cgif.h"
 
 #define WIDTH  1 
-#define HEIGHT 224 // MUST be <= 255 in this specific test
+#define HEIGHT 224 // ceil((224 + 2) * 9bit)  =  255byte  (+2 for start- and clear-code)
 
 /* This test creates a GIF-frame with exactly 255 LZW bytes */
 int main(void) {
