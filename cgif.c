@@ -13,27 +13,18 @@
 #define HEADER_OFFSET_BACKGROUND   (0x0B)
 #define HEADER_OFFSET_MAP          (0x0C)
 
-#define HEADER_WIDTH(a)            (*((uint16_t*)(a + HEADER_OFFSET_WIDTH )))
-#define HEADER_HEIGHT(a)           (*((uint16_t*)(a + HEADER_OFFSET_HEIGHT)))
-
 #define IMAGE_OFFSET_LEFT          (0x01)
 #define IMAGE_OFFSET_TOP           (0x03)
 #define IMAGE_OFFSET_WIDTH         (0x05)
 #define IMAGE_OFFSET_HEIGHT        (0x07)
 #define IMAGE_OFFSET_PACKED_FIELD  (0x09)
 
-#define IMAGE_TOP(a)               (*((uint16_t*)(a + IMAGE_OFFSET_TOP)))
-#define IMAGE_LEFT(a)              (*((uint16_t*)(a + IMAGE_OFFSET_LEFT)))
-#define IMAGE_WIDTH(a)             (*((uint16_t*)(a + IMAGE_OFFSET_WIDTH )))
-#define IMAGE_HEIGHT(a)            (*((uint16_t*)(a + IMAGE_OFFSET_HEIGHT)))
 #define IMAGE_PACKED_FIELD(a)      (*((uint8_t*) (a + IMAGE_OFFSET_PACKED_FIELD)))
 
 #define APPEXT_OFFSET_NAME            (0x03)
 #define APPEXT_NETSCAPE_OFFSET_LOOPS  (APPEXT_OFFSET_NAME + 13)
-#define NETSCAPE_LOOPS(a)             (*((uint16_t*)(a + APPEXT_NETSCAPE_OFFSET_LOOPS)))
 
 #define GEXT_OFFSET_DELAY          (0x04)
-#define GEXT_DELAY(a)              (*((uint16_t*)(a + GEXT_OFFSET_DELAY)))
 
 #define MAX_CODE_LEN    12                    // maximum code length for lzw
 #define MAX_DICT_LEN    (1uL << MAX_CODE_LEN) // maximum length of the dictionary
@@ -280,11 +271,13 @@ static void initMainHeader(CGIF* pGIF) {
   pGIF->aHeader[HEADER_OFFSET_VERSION + 1]   = '9'; 
   pGIF->aHeader[HEADER_OFFSET_VERSION + 2]   = 'a';
 
-  // set width of screen
-  HEADER_WIDTH(pGIF->aHeader)  = hU16toLE(width);
+  // set width of screen (LE ordering)
+  const uint16_t widthLE  = hU16toLE(width);
+  memcpy(pGIF->aHeader + HEADER_OFFSET_WIDTH, &widthLE, sizeof(uint16_t));
 
-  // set height of screen
-  HEADER_HEIGHT(pGIF->aHeader) = hU16toLE(height);
+  // set height of screen (LE ordering)
+  const uint16_t heightLE = hU16toLE(height);
+  memcpy(pGIF->aHeader + HEADER_OFFSET_HEIGHT, &heightLE, sizeof(uint16_t));
 
   // init packed field
   x = (pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) ? 0 : 1;
@@ -323,7 +316,6 @@ static void initLocalColorTable(CGIF_Frame* pFrame) {
 /* initialize NETSCAPE app extension block (needed for animation) */
 static void initAppExtBlock(CGIF* pGIF) {
   memset(pGIF->aAppExt, 0, sizeof(pGIF->aAppExt));
-
   // set data
   pGIF->aAppExt[0] = 0x21;
   pGIF->aAppExt[1] = 0xFF; // start of block
@@ -343,7 +335,9 @@ static void initAppExtBlock(CGIF* pGIF) {
   pGIF->aAppExt[APPEXT_OFFSET_NAME + 10] = '0';
   pGIF->aAppExt[APPEXT_OFFSET_NAME + 11] = 0x03; // 3 bytes to follow
   pGIF->aAppExt[APPEXT_OFFSET_NAME + 12] = 0x01; // TBD clarify
-  NETSCAPE_LOOPS(pGIF->aAppExt)          = hU16toLE(pGIF->config.numLoops); // number of repetitions (animation)
+  // set number of repetitions (animation; LE ordering)
+  const uint16_t netscapeLE = hU16toLE(pGIF->config.numLoops);
+  memcpy(pGIF->aAppExt + APPEXT_NETSCAPE_OFFSET_LOOPS, &netscapeLE, sizeof(uint16_t));
 }
 
 /* write a chunk of data to either a callback or a file */
@@ -577,11 +571,14 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     pFrame->left                       = 0;
     pTmpImageData                      = NULL;
   }
-  IMAGE_WIDTH(pFrame->aImageHeader)  = hU16toLE(pFrame->width);
-  IMAGE_HEIGHT(pFrame->aImageHeader) = hU16toLE(pFrame->height);
-  IMAGE_TOP(pFrame->aImageHeader)    = hU16toLE(pFrame->top);
-  IMAGE_LEFT(pFrame->aImageHeader)   = hU16toLE(pFrame->left);
-
+  const uint16_t frameWidthLE  = hU16toLE(pFrame->width);
+  const uint16_t frameHeightLE = hU16toLE(pFrame->height);
+  const uint16_t frameTopLE    = hU16toLE(pFrame->top);
+  const uint16_t frameLeftLE   = hU16toLE(pFrame->left);
+  memcpy(pFrame->aImageHeader + IMAGE_OFFSET_WIDTH,  &frameWidthLE,  sizeof(uint16_t));
+  memcpy(pFrame->aImageHeader + IMAGE_OFFSET_HEIGHT, &frameHeightLE, sizeof(uint16_t));
+  memcpy(pFrame->aImageHeader + IMAGE_OFFSET_TOP,    &frameTopLE,    sizeof(uint16_t));
+  memcpy(pFrame->aImageHeader + IMAGE_OFFSET_LEFT,   &frameLeftLE,   sizeof(uint16_t));
   // mark matching areas of the previous frame as transparent, if required (CGIF_FRAME_GEN_USE_TRANSPARENCY set)
   if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) {
     if(pTmpImageData == NULL) {
@@ -631,7 +628,9 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
       pFrame->aGraphicExt[3] |= 0x01; // set flag indicating that transparency is used
     }
     pFrame->aGraphicExt[6] = pFrame->transIndex;
-    GEXT_DELAY(pFrame->aGraphicExt) = hU16toLE(pConfig->delay); // set delay
+    // set delay (LE ordering)
+    const uint16_t delayLE = hU16toLE(pConfig->delay);
+    memcpy(pFrame->aGraphicExt + GEXT_OFFSET_DELAY, &delayLE, sizeof(uint16_t));
   }
 
   // write frame
