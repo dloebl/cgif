@@ -1,0 +1,3 @@
+[submodule "ext/gifdec"]
+	path = ext/gifdec
+	url = https://github.com/lecram/gifdec.git
