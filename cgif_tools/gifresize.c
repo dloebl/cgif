@@ -85,6 +85,10 @@ int main(int argn, char** pArgs) {
   // read in GIF: done by libnsgif in case of libvips
   // TBD replace gifdec with libnsgif
   gd_GIF* dGIF  = gd_open_gif(sInput);  
+  if(!dGIF) {
+    fprintf(stderr, "%s\n", "failed to open <input-gif>");
+    return 3;
+  }
   uint8_t* pRGB = malloc(dGIF->width * dGIF->height * 3);
   uint8_t* pImageData = malloc(MULU16(newWidth, newHeight));
   uint8_t* aPalette = malloc(256 * 3); // max size of palette
