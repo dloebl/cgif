@@ -113,18 +113,26 @@ static uint8_t calcInitCodeLen(uint16_t numEntries) {
 }
 
 /* find next LZW code representing the longest pixel sequence that is still in the dictionary*/
-static uint32_t lzw_crawl_tree(LZWGenState* pContext, uint32_t strPos, uint16_t parentIndex, const uint16_t initDictLen) {
+static int lzw_crawl_tree(LZWGenState* pContext, uint32_t* pStrPos, uint16_t parentIndex, const uint16_t initDictLen) {
   uint16_t* pTreeInit;
   uint16_t* pTreeList;
+  uint32_t  strPos;
   uint16_t  nextParent;
   uint16_t  mapPos;
 
+  if(parentIndex >= initDictLen) {
+    return CGIF_EINDEX; // error: index in image data out-of-bounds
+  }
   pTreeInit = pContext->pTreeInit;
   pTreeList = pContext->pTreeList;
+  strPos    = *pStrPos;
   // get the next LZW code from pTreeInit:
   // the initial nodes (0-255 max) have more children on average.
   // use the mapping approach right from the start for these nodes.
   if(strPos < (pContext->numPixel - 1)) {
+    if(pContext->pImageData[strPos + 1] >= initDictLen) {
+      return CGIF_EINDEX; // error: index in image data out-of-bounds
+    }
     nextParent = pTreeInit[parentIndex * initDictLen + pContext->pImageData[strPos + 1]];
     if(nextParent) {
       parentIndex = nextParent;
@@ -138,11 +146,16 @@ static uint32_t lzw_crawl_tree(LZWGenState* pContext, uint32_t strPos, uint16_t 
       } else {
         resetDict(pContext, initDictLen);
       }
-      return strPos + 1;
+      ++strPos;
+      *pStrPos = strPos;
+      return CGIF_OK;
     }
   }
   // inner loop for codes > initDictLen
   while(strPos < (pContext->numPixel - 1)) {
+    if(pContext->pImageData[strPos + 1] >= initDictLen) {
+      return CGIF_EINDEX;  // error: index in image data out-of-bounds
+    }
     // first try to find child in LZW list
     if(pTreeList[parentIndex * (2 + 1) + 2] && pTreeList[parentIndex * (2 + 1) + 1] == pContext->pImageData[strPos + 1]) {
       parentIndex = pTreeList[parentIndex * (2 + 1) + 2];
@@ -168,26 +181,36 @@ static uint32_t lzw_crawl_tree(LZWGenState* pContext, uint32_t strPos, uint16_t 
       // the dictionary reached its maximum code => reset it (not required by GIF-standard but mostly done like this)
       resetDict(pContext, initDictLen);
     }
-    return strPos + 1;
+    ++strPos;
+    *pStrPos = strPos;
+    return CGIF_OK;
   }
   pContext->pLZWData[pContext->LZWPos] = parentIndex; // if the end of the image is reached, write last LZW code
   ++(pContext->LZWPos);
-  return strPos + 1;
+  ++strPos;
+  *pStrPos = strPos;
+  return CGIF_OK;
 }
 
 /* generate LZW-codes that compress the image data*/
-static uint32_t lzw_generate(CGIF_Frame* pFrame, LZWGenState* pContext) {
+static int lzw_generate(CGIF_Frame* pFrame, LZWGenState* pContext) {
   uint32_t strPos;
+  int      r;
   uint8_t  parentIndex;
 
   strPos = 0;                                                                          // start at beginning of the image data
   resetDict(pContext, pFrame->initDictLen);                                            // reset dictionary and issue clear-code at first
   while(strPos < pContext->numPixel) {                                                 // while there are still image data to be encoded
     parentIndex  = pContext->pImageData[strPos];                                       // start at root node
-    strPos       = lzw_crawl_tree(pContext, strPos, (uint16_t)parentIndex, pFrame->initDictLen); // get longest sequence that is still in dictionary, return new position in image data
+    // get longest sequence that is still in dictionary, return new position in image data
+    r = lzw_crawl_tree(pContext, &strPos, (uint16_t)parentIndex, pFrame->initDictLen);
+    if(r != CGIF_OK) {
+      return r; // error: return error code to callee
+    }
   }
   pContext->pLZWData[pContext->LZWPos] = pFrame->initDictLen + 1;                      // termination code
-  return pContext->LZWPos + 1;                                                         // return number of elements of LZW data
+  ++(pContext->LZWPos);
+  return CGIF_OK;
 }
 
 /* pack the LZW data into a byte sequence*/
@@ -267,10 +290,11 @@ static uint32_t create_byte_list_block(uint8_t *byteList, uint8_t *byteListBlock
 }
 
 /* create all LZW raster data in GIF-format */
-static uint8_t* LZW_GenerateStream(CGIF_Frame* pFrame, const uint32_t numPixel, const uint8_t* pImageData){
+static int LZW_GenerateStream(CGIF_Frame* pFrame, const uint32_t numPixel, const uint8_t* pImageData){
   LZWGenState* pContext;
   uint32_t     lzwPos, bytePos;
   uint32_t     bytePosBlock;
+  int          r;
   // TBD recycle LZW tree list and map (if possible) to decrease the number of allocs
   pContext             = malloc(sizeof(LZWGenState)); // TBD check return value of malloc
   pContext->pTreeInit  = malloc((pFrame->initDictLen * sizeof(uint16_t)) * pFrame->initDictLen); // TBD check return value of malloc
@@ -282,7 +306,11 @@ static uint8_t* LZW_GenerateStream(CGIF_Frame* pFrame, const uint32_t numPixel, 
   pContext->LZWPos     = 0;
 
   // actually generate the LZW sequence.
-  lzwPos  = lzw_generate(pFrame, pContext);
+  r = lzw_generate(pFrame, pContext); // TBD check for errors
+  if(r != CGIF_OK) {
+    goto LZWGENERATE_Cleanup;
+  }
+  lzwPos = pContext->LZWPos;
 
   // pack the generated LZW data into blocks of 255 bytes
   uint8_t *byteList; // lzw-data packed in byte-list
@@ -294,13 +322,15 @@ static uint8_t* LZW_GenerateStream(CGIF_Frame* pFrame, const uint32_t numPixel, 
   bytePos = create_byte_list(pFrame, byteList,lzwPos, pContext->pLZWData);
   bytePosBlock = create_byte_list_block(byteList, byteListBlock, bytePos+1);
   free(byteList);
+  pFrame->sizeRasterData = bytePosBlock + 1; // save
+  pFrame->pRasterData    = byteListBlock;
+LZWGENERATE_Cleanup:
   free(pContext->pLZWData);
   free(pContext->pTreeInit);
   free(pContext->pTreeList);
   free(pContext->pTreeMap);
   free(pContext);
-  pFrame->sizeRasterData = bytePosBlock + 1; // save 
-  return byteListBlock;
+  return r;
 }
 
 /* initialize the header of the GIF */
@@ -394,10 +424,14 @@ static void initAppExtBlock(CGIF* pGIF) {
   memcpy(pGIF->aAppExt + APPEXT_NETSCAPE_OFFSET_LOOPS, &netscapeLE, sizeof(uint16_t));
 }
 
-/* write a chunk of data to either a callback or a file */
+/* write a chunk of data to either a callback or a file. MUST return 0 on success or -1 on error */
 static int write(CGIF* pGIF, const uint8_t* pData, const size_t numBytes) {
+  size_t r;
+
   if(pGIF->pFile) {
-    return fwrite(pData, 1, numBytes, pGIF->pFile);
+    r = fwrite(pData, 1, numBytes, pGIF->pFile);
+    if(r == numBytes) return 0;
+    else return -1;
   } else if(pGIF->config.pWriteFn) {
     return pGIF->config.pWriteFn(pGIF->config.pContext, pData, numBytes);
   }
@@ -406,13 +440,28 @@ static int write(CGIF* pGIF, const uint8_t* pData, const size_t numBytes) {
 
 /* create a new GIF */
 CGIF* cgif_newgif(CGIF_Config* pConfig) {
-  CGIF*     pGIF;
+  FILE*    pFile;
+  CGIF*    pGIF;
+  int      rWrite;
   uint8_t  pow2GlobalPalette;
 
+  pFile = NULL;
+  // open output file (if necessary)
+  if(pConfig->path) {
+    pFile = fopen(pConfig->path, "wb");
+    if(pFile == NULL) {
+      return NULL; // error: fopen failed
+    }
+  }
+  // allocate space for CGIF context
   pGIF = malloc(sizeof(CGIF));
   if(pGIF == NULL) {
+    if(pFile) {
+      fclose(pFile);
+    }
     return NULL; // error -> malloc failed
   }
+  pGIF->pFile = pFile;
   memcpy(&(pGIF->config), pConfig, sizeof(CGIF_Config));
 
   // initiate all sections we can at this stage:
@@ -433,19 +482,27 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
   pGIF->pCurFrame = &(pGIF->firstFrame);
   
   // write first sections to file
-  pGIF->pFile = NULL;
-  if(pConfig->path) {
-    pGIF->pFile = fopen(pConfig->path, "wb"); // TBD check if fopen success
-  }
-  write(pGIF, pGIF->aHeader, 13);
+  rWrite = write(pGIF, pGIF->aHeader, 13);
   if((pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
     pow2GlobalPalette = calcNextPower2Ex(pGIF->config.numGlobalPaletteEntries);
     pow2GlobalPalette = (pow2GlobalPalette < 1) ? 1 : pow2GlobalPalette; // minimum size is 2^1
-    write(pGIF, pGIF->aGlobalColorTable, 3 << pow2GlobalPalette);
+    rWrite |= write(pGIF, pGIF->aGlobalColorTable, 3 << pow2GlobalPalette);
   }
   if(pGIF->config.attrFlags & CGIF_ATTR_IS_ANIMATED) {
-    write(pGIF, pGIF->aAppExt, 19);
+    rWrite |= write(pGIF, pGIF->aAppExt, 19);
   }
+  // check for write errors
+  if(rWrite) {
+    if(pGIF->pFile) {
+      fclose(pGIF->pFile);
+    }
+    free(pGIF);
+    return NULL;
+  }
+
+  // assume error per default.
+  // set to CGIF_OK by the first successful cgif_addframe() call, as a GIF without frames is invalid.
+  pGIF->curResult = CGIF_PENDING;
   return pGIF;
 }
 
@@ -557,8 +614,13 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   int      isFirstFrame;
   int      useLocalTable;
   int      hasTransparency;
+  int      rWrite, r;
   uint8_t  pow2LocalPalette;
   
+  if(pGIF->curResult != CGIF_OK && pGIF->curResult != CGIF_PENDING) {
+    return pGIF->curResult; // return previous error
+  }
+  rWrite        = 0;
   pFrame        = pGIF->pCurFrame;
   memcpy(&(pFrame->config), pConfig, sizeof(CGIF_FrameConfig));
   imageWidth    = pGIF->config.width;
@@ -651,15 +713,24 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
 
   // generate LZW raster data (actual image data)
   if((pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) || (pFrame->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW)) {
-    pFrame->pRasterData = LZW_GenerateStream(pFrame, MULU16(pFrame->width, pFrame->height), pTmpImageData);
+    r = LZW_GenerateStream(pFrame, MULU16(pFrame->width, pFrame->height), pTmpImageData);
     free(pTmpImageData);
   } else {
-    pFrame->pRasterData = LZW_GenerateStream(pFrame, MULU16(imageWidth, imageHeight), pConfig->pImageData);
+    r = LZW_GenerateStream(pFrame, MULU16(imageWidth, imageHeight), pConfig->pImageData);
   }
 
   // cleanup
   if(!isFirstFrame) {
     free(pFrame->pBef->config.pImageData);
+  }
+  // check for errors
+  if(r != CGIF_OK) {
+    if(!isFirstFrame && (&(pGIF->firstFrame) != pFrame->pBef)) {
+      free(pFrame->pBef);
+    }
+    free(pFrame->config.pImageData);
+    pGIF->curResult = r;
+    return r;
   }
   pFrame->pNext             = malloc(sizeof(CGIF_Frame)); // TBD check return value of malloc
   pFrame->pNext->transIndex = 0;
@@ -690,31 +761,40 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   // write frame
   initialCodeSize = pFrame->initCodeLen - 1;
   if(pGIF->config.attrFlags & CGIF_ATTR_IS_ANIMATED) {
-    write(pGIF, pFrame->aGraphicExt, 8);
+    rWrite |= write(pGIF, pFrame->aGraphicExt, 8);
   }
-  write(pGIF, pFrame->aImageHeader, 10);
+  rWrite |= write(pGIF, pFrame->aImageHeader, 10);
   if(pFrame->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) {
-    write(pGIF, pFrame->aLocalColorTable, 3 << pow2LocalPalette);
+    rWrite |= write(pGIF, pFrame->aLocalColorTable, 3 << pow2LocalPalette);
   }
-  write(pGIF, &initialCodeSize, 1);
-  write(pGIF, pFrame->pRasterData, pFrame->sizeRasterData);
+  rWrite |= write(pGIF, &initialCodeSize, 1);
+  rWrite |= write(pGIF, pFrame->pRasterData, pFrame->sizeRasterData);
 
   // free stuff
   free(pFrame->pRasterData);
   if(!isFirstFrame && (&(pGIF->firstFrame) != pFrame->pBef)) {
     free(pFrame->pBef);
   }
-  return 0;
+  // check for write errors
+  if(rWrite) pGIF->curResult = CGIF_EWRITE;
+  else pGIF->curResult = CGIF_OK;
+  return pGIF->curResult;
 }
 
 /* write terminate code, close the GIF-file, free allocated space */
 int cgif_close(CGIF* pGIF) {
+  int rWrite, r, result;
+
+  // check for previous errors
+  if(pGIF->curResult != CGIF_OK) {
+    goto CGIFCLOSE_Cleanup;
+  }
+  rWrite = write(pGIF, (unsigned char*) ";", 1); // write term symbol
+  // check for write errors
+  if(rWrite) pGIF->curResult = CGIF_EWRITE;
+CGIFCLOSE_Cleanup:
   // not first frame?
   // => free preserved image data of the frame before
-  write(pGIF, (unsigned char*) ";", 1); // write term symbol
-  if(pGIF->pFile) {
-    fclose(pGIF->pFile);            // we are done at this point => close the file
-  }
   if(&(pGIF->firstFrame) != pGIF->pCurFrame) {
     free(pGIF->pCurFrame->pBef->config.pImageData);
     if(pGIF->pCurFrame->pBef != &(pGIF->firstFrame)) {
@@ -722,6 +802,15 @@ int cgif_close(CGIF* pGIF) {
     }
     free(pGIF->pCurFrame);
   }
+  if(pGIF->pFile) {
+    r = fclose(pGIF->pFile); // we are done at this point => close the file
+    if(r) {
+      pGIF->curResult = CGIF_ECLOSE; // error: fclose failed
+    }
+  }
+  result = pGIF->curResult;
   free(pGIF);
-  return 0;
+  // catch internal value CGIF_PENDING
+  if(result == CGIF_PENDING) result = CGIF_ERROR;
+  return result; // return previous result
 }

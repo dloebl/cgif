@@ -8,7 +8,12 @@
 #define HEIGHT 100
 
 static int pWriteFn(void* pContext, const uint8_t* pData, const size_t numBytes) {
-  return fwrite(pData, 1, numBytes, (FILE*) pContext);
+  size_t r = fwrite(pData, 1, numBytes, (FILE*) pContext);
+  if(r == numBytes) {
+    return 0;
+  } else {
+    return -1;
+  }
 }
 
 int main(void) {

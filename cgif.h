@@ -19,6 +19,18 @@ extern "C" {
 
 #define CGIF_INFINITE_LOOP               (0x0000uL)       // for animated GIF: 0 specifies infinite loop
 
+typedef enum {
+  CGIF_ERROR = -1, // something unspecified failed
+  CGIF_OK    =  0, // everything OK
+  CGIF_EWRITE,     // writing GIF data failed
+  CGIF_EALLOC,     // allocating memory failed
+  CGIF_ECLOSE,     // final call to fclose failed
+  CGIF_EOPEN,      // failed to open output file
+  CGIF_EINDEX,     // invalid index in image data provided by user
+  // internal section (values subject to change)
+  CGIF_PENDING,
+} cgif_result;
+
 typedef struct st_gif         CGIF;                      // struct for the full GIF
 typedef struct st_frame       CGIF_Frame;                // struct for a single frame
 typedef struct st_gifconfig    CGIF_Config;                // global cofinguration parameters of the GIF
@@ -87,6 +99,7 @@ struct st_gif {
   uint8_t      aAppExt[19];                              //
   CGIF_Frame*  pCurFrame;                                // (internal) pointer to current frame
   CGIF_Frame   firstFrame;                                // (internal) pointer to next frame
+  cgif_result  curResult;
 };
 
 #ifdef __cplusplus
