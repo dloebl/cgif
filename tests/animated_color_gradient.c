@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "cgif.h"
 
@@ -14,6 +15,7 @@ int main(void) {
   CGIF_FrameConfig  fConfig;
   uint8_t*          pImageData;
   uint8_t           aPalette[3*WIDTH];
+  cgif_result       r;
   // define red color gradient
   for (int j = 0; j < WIDTH; ++j) {
     aPalette[j*3] = j;
@@ -43,6 +45,10 @@ int main(void) {
   //
   // create new GIF
   pGIF = cgif_newgif(&gConfig);
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
   //
   // add frames to GIF
   pImageData = malloc(WIDTH * HEIGHT);         // actual image data
@@ -53,11 +59,20 @@ int main(void) {
     for (int i = 0; i < (WIDTH * HEIGHT); ++i) {
     	pImageData[i] = (unsigned char)((i + f) % WIDTH); // ceate a moving stripe pattern
     }
-    cgif_addframe(pGIF, &fConfig);             // append the new frame
+    r = cgif_addframe(pGIF, &fConfig);             // append the new frame
+    if(r != CGIF_OK) {
+      break;
+    }
   }
   free(pImageData);
   //
   // write GIF to file
-  cgif_close(pGIF);                            // free allocated space at the end of the session
+  r = cgif_close(pGIF); // free allocated space at the end of the session
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }

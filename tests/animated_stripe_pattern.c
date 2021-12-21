@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "cgif.h"
 
@@ -20,6 +21,7 @@ int main(void) {
     0x00, 0xFF, 0x00, // green
     0x00, 0x00, 0xFF, // blue
   };
+  cgif_result r;
   uint8_t numColors   = 5;  // number of colors in aPalette
   int numFrames       = 30; // number of frames in the video
   
@@ -34,6 +36,10 @@ int main(void) {
   //
   // create new GIF
   pGIF = cgif_newgif(&gConfig);
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
   //
   // add frames to GIF
   pImageData = malloc(WIDTH * HEIGHT);         // actual image data
@@ -44,11 +50,20 @@ int main(void) {
     for (int i = 0; i < (WIDTH * HEIGHT); ++i) {
     	pImageData[i] = (unsigned char)((f + i % WIDTH) % numColors); // ceate a moving stripe pattern
     }
-    cgif_addframe(pGIF, &fConfig); // append the new frame
+    r = cgif_addframe(pGIF, &fConfig); // append the new frame
+    if(r != CGIF_OK) {
+      break;
+    }
   }
   free(pImageData);
   //
   // write GIF to file
-  cgif_close(pGIF);                  // free allocated space at the end of the session
+  r = cgif_close(pGIF);                  // free allocated space at the end of the session
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }

@@ -32,12 +32,17 @@ int main(void) {
   uint8_t aPalette[] = {0xFF, 0x00, 0x00,                                // red
                         0x00, 0xFF, 0x00,                                // green
                         0x00, 0x00, 0xFF};                               // blue
-  uint8_t numColors = 3;                                                 // number of colors in aPalette (up to 256 possible)
+  cgif_result r;
+  uint16_t numColors = 3;                                                // number of colors in aPalette (up to 256 possible)
   int numFrames = 12;                                                    // number of frames in the video
 
   // initialize the GIF-configuration and create a new GIF
   initGIFConfig(&gConfig, "example_video_cgif.gif", WIDTH, HEIGHT, aPalette, numColors);
   pGIF = cgif_newgif(&gConfig);
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
 
   // create image frames and add them to GIF
   pImageData = malloc(WIDTH * HEIGHT);                                   // allocate memory for image data
@@ -46,11 +51,20 @@ int main(void) {
       pImageData[i] = (unsigned char)((f + i % WIDTH ) / 4 % numColors); // moving stripe pattern (4 pixels per stripe)
     }
     initFrameConfig(&fConfig, pImageData, 10);                           // initialize the frame-configuration
-    cgif_addframe(pGIF, &fConfig);                                       // append the new frame
+    r = cgif_addframe(pGIF, &fConfig);                                       // append the new frame
+    if(r != CGIF_OK) {
+      break; // error: cgif_addframe() failed
+    }
   }
   free(pImageData);                                                      // free image data when all frames are added
 
   // close created GIF-file and free allocated space
-  cgif_close(pGIF);
+  r = cgif_close(pGIF);
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }

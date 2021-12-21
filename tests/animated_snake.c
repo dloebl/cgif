@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "cgif.h"
 
@@ -31,6 +32,7 @@ int main(void) {
   CGIF_FrameConfig  fConfig;                                                  // configuration parameters for a frame
   uint8_t*    pImageData;                                                // image data (an array of color-indices)
   int x,y,x1,y1;                                                         // position of snake beginning and end
+  cgif_result r;
   uint8_t aPalette[] = {0xFF, 0x00, 0x00,                                // red
                         0x00, 0xFF, 0x00,                                // green
                         0x00, 0x00, 0xFF};                               // blue
@@ -40,6 +42,10 @@ int main(void) {
   // initialize the GIF-configuration and create a new GIF
   initGIFConfig(&gConfig, "animated_snake.gif", WIDTH, HEIGHT, aPalette, numColors);
   pGIF = cgif_newgif(&gConfig);
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
 
   // create image frames and add them to GIF
   pImageData = malloc(WIDTH * HEIGHT);                                   // allocate memory for image data
@@ -73,11 +79,20 @@ int main(void) {
       x1--;
     }
     initFrameConfig(&fConfig, pImageData, 5);                            // initialize the frame-configuration
-    cgif_addframe(pGIF, &fConfig);                                       // append the new frame
+    r = cgif_addframe(pGIF, &fConfig);                                   // append the new frame
+    if(r != CGIF_OK) {
+      break;
+    }
   }
   free(pImageData);                                                      // free image data when all frames are added
 
   // close created GIF-file and free allocated space
-  cgif_close(pGIF);
+  r = cgif_close(pGIF);
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }

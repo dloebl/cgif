@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "cgif.h"
 
@@ -20,6 +21,7 @@ int main(void) {
   CGIF_Config     gConfig;
   CGIF_FrameConfig   fConfig;
   uint8_t*      pImageData;
+  cgif_result   r;
   uint8_t       aPalette[6 * 3]; 
 
   seed = 42;
@@ -38,15 +40,25 @@ int main(void) {
   //
   // create new GIF
   pGIF = cgif_newgif(&gConfig);
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
   //
   // add frames to GIF
   pImageData = malloc(WIDTH * HEIGHT);
   for(int i = 0; i < WIDTH * HEIGHT; ++i) pImageData[i] = psdrand() % 6;
   fConfig.pImageData = pImageData;
-  cgif_addframe(pGIF, &fConfig);
+  r = cgif_addframe(pGIF, &fConfig);
   free(pImageData);
   //
   // write GIF to file
-  cgif_close(pGIF); // free allocated space at the end of the session
+  r = cgif_close(pGIF); // free allocated space at the end of the session
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }

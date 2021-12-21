@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "cgif.h"
 
@@ -37,6 +38,7 @@ int main(void) {
   uint8_t aPalette_local[] = {0xFF, 0x00, 0x00,                           // red
                         0x00, 0xFF, 0x00,                                 // green
                         0x00, 0x00, 0x00};                                // black
+  cgif_result r;
   uint8_t numColors_global = 3;                                           // number of colors in global color palette (up to 256 possible)
   uint8_t numColors_local = 3;                                            // number of colors in local color palette (up to 256 possible)    
   int numFrames = 10;                                                     // number of frames in the animation
@@ -44,6 +46,10 @@ int main(void) {
   // initialize the GIF-configuration and create a new GIF
   initGIFConfig(&gConfig, "global_plus_local_table_with_optim.gif", WIDTH, HEIGHT, aPalette, numColors_global);
   pGIF = cgif_newgif(&gConfig);
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
 
   // create image frames and add them to GIF (use global color table first)
   pImageData = malloc(WIDTH * HEIGHT);                                    // allocate memory for image data
@@ -51,7 +57,10 @@ int main(void) {
   for (f = 0; f < numFrames-2; ++f) {
     pImageData[f + WIDTH * (HEIGHT/2)] = 1;
     initFrameConfig(&fConfig, pImageData, 20);                            // initialize the frame-configuration (3rd parameter is the delay in 0.01 s)
-    cgif_addframe(pGIF, &fConfig);                                        // append the new frame
+    r = cgif_addframe(pGIF, &fConfig);                                    // append the new frame
+    if(r != CGIF_OK) {
+      break;
+    }
   }
   
   // add frame with local color table (one additional black pixel)
@@ -61,26 +70,35 @@ int main(void) {
   fConfig.numLocalPaletteEntries = numColors_local;
   fConfig.attrFlags = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
   fConfig.delay = 200;                                                    // delay in 0.01 s
-  cgif_addframe(pGIF, &fConfig); // append the new frame
+  r = cgif_addframe(pGIF, &fConfig); // append the new frame
   
   // add another frame with local color table
   pImageData[WIDTH * (HEIGHT/2) + f + 2] = 1;
   pImageData[WIDTH * (HEIGHT/2) + f + 4] = 1;
   pImageData[WIDTH * (HEIGHT/2) + f + 6] = 1;
   pImageData[WIDTH * (HEIGHT/2) + f + 8] = 1;
-  cgif_addframe(pGIF, &fConfig); // append the new frame
+  r = cgif_addframe(pGIF, &fConfig); // append the new frame
     
   // refresh pattern and go on with global color table  
   memset(pImageData, 0, WIDTH * HEIGHT);                                  // set the background color to 1st color in global palette
   for (f = 0; f < numFrames-2; ++f) {
     pImageData[2*f + WIDTH * (HEIGHT/2)] = 2;
     initFrameConfig(&fConfig, pImageData, 50);                            // initialize the frame-configuration (3rd parameter is the delay in 0.01 s)
-    cgif_addframe(pGIF, &fConfig);                                        // append the new frame
+    r = cgif_addframe(pGIF, &fConfig);                                    // append the new frame
+    if(r != CGIF_OK) {
+      break;
+    }
   }
   
   free(pImageData);                                                      // free image data when all frames are added
 
   // close created GIF-file and free allocated space
-  cgif_close(pGIF);
+  r = cgif_close(pGIF);
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }

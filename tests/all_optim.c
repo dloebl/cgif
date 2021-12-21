@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "cgif.h"
 
@@ -34,12 +35,17 @@ int main(void) {
     0x00, 0x00, 0x00, // black
     0xFF, 0xFF, 0xFF, // white
   };
+  cgif_result r;
   uint8_t numColors = 2;   // number of colors in aPalette
   int numFrames     = 2;      // number of frames in the video
   //
   // create new GIF
   initGIFConfig(&gConfig, aPalette, numColors, CGIF_ATTR_IS_ANIMATED, WIDTH, HEIGHT);
   pGIF = cgif_newgif(&gConfig);
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
   //
   // add frames to GIF
   pImageData = malloc(WIDTH * HEIGHT);         // Actual image data
@@ -53,11 +59,17 @@ int main(void) {
   memset(pImageData + 7 + WIDTH * 3, 1, 41);
   memset(pImageData + 7 + WIDTH * 3, 0, 23);
   memset(pImageData + 7 + WIDTH * 4, 0, 37);
-  cgif_addframe(pGIF, &fConfig); // append the next frame
+  r = cgif_addframe(pGIF, &fConfig); // append the next frame
   //
   free(pImageData);
   //
   // Free allocated space at the end of the session
-  cgif_close(pGIF);
+  r = cgif_close(pGIF);
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }
