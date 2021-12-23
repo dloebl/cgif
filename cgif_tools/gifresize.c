@@ -64,9 +64,10 @@ static uint16_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, ui
   uint8_t   indexUsed[tableSize];     // which part of the hash table was already used
 
   memset(indexUsed, 0, tableSize);
-  for(uint32_t i = 0; i < numPixel; ++i){
+  for(uint32_t i = 0; i < numPixel; ++i) {
     h = ((pImageDataRGB[3 * i + 0] * 256 * 256 + pImageDataRGB[3 * i + 1] * 256 + pImageDataRGB[3 * i + 2]) % p) % tableSize;
-    while(1) {
+    int foundSlot = 0;
+    for(uint16_t numTries = 0; numTries < 256; ++numTries) {
       if(indexUsed[h] == 0){
         memcpy(&hashTable[3 * h], &pImageDataRGB[3 * i], 3); // add new color to hash table
         memcpy(&pPalette[3 * cnt], &pImageDataRGB[3 * i], 3); // add new color to palette
@@ -74,17 +75,19 @@ static uint16_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, ui
         colIdx[h] = cnt;
         pImageData[i] = cnt;
         ++cnt; // one new color added
+        foundSlot = 1;
         break;
       } else if(memcmp(&pImageDataRGB[3*i], &hashTable[3*h], 3) == 0){
         pImageData[i] = colIdx[h];
+        foundSlot = 1;
         break;
       } else {
         ++h; // go on searching for a free spot
       }
     }
-    if(cnt > 256){
-      fprintf(stderr, "%s\n", "too many colors");
-      return cnt; // too many colors for indexing without quantization
+    if(foundSlot == 0) {
+      fprintf(stderr, "%s\n", "too many colors in input frame (> 256; not [yet] supported)");
+      return 0; // too many colors for indexing without quantization
     }
   }
   return cnt; // return number of colors found
@@ -92,6 +95,8 @@ static uint16_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, ui
 
 // gifresize <input-gif> <output-gif> <new-width> <new-height>
 int main(int argn, char** pArgs) {
+  int result = 0;
+
   if(argn != 5) {
     fprintf(stderr, "%s\n", "invalid number of arguments\nsyntax:\ngifresize <input-gif> <output-gif> <new-width> <new-height>");
     return 1; // error
@@ -159,6 +164,12 @@ int main(int argn, char** pArgs) {
     uint8_t* pRGBA   = dGIF.frame_image;
     uint8_t* pNewRGB = resize_naive_rgb(pRGBA, dGIF.width, dGIF.height, newWidth, newHeight);   // resize RGBA frame
     int cntBlock  = rgb_to_index(pNewRGB, MULU16(newWidth, newHeight), pImageData, aPalette); // get local palette from RGB frame
+    // check for errors
+    if(cntBlock == 0) {
+      result = 7;
+      free(pNewRGB);
+      break;
+    }
     fConf.numLocalPaletteEntries = cntBlock;
     cgif_addframe(eGIF, &fConf);
     free(pNewRGB);
@@ -174,5 +185,5 @@ int main(int argn, char** pArgs) {
     fprintf(stderr, "%s\n", "failed to decode frame");
     return 6;
   }
-  return 0;
+  return result;
 }
