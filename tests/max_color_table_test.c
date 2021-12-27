@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "cgif.h"
 
@@ -14,6 +15,7 @@ int main(void) {
   CGIF_FrameConfig   fConfig;
   uint8_t*      pImageData;
   uint8_t*      aPalette;
+  cgif_result   r;
   uint16_t      numColors         = 256; // number of colors in aPalette  
   //
   // create an image
@@ -29,16 +31,26 @@ int main(void) {
   gConfig.pGlobalPalette          = aPalette;
   gConfig.numGlobalPaletteEntries = numColors;
   gConfig.path                    = "max_color_table_test.gif";
-  pGIF = cgif_newgif(&gConfig);  
+  pGIF = cgif_newgif(&gConfig);
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
   //
   // add frames to GIF
   memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
   fConfig.pImageData = pImageData;
-  cgif_addframe(pGIF, &fConfig);
+  r = cgif_addframe(pGIF, &fConfig);
   free(pImageData);  
   free(aPalette);
   //
   // free allocated space at the end of the session
-  cgif_close(pGIF);  
+  r = cgif_close(pGIF);
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "cgif.h"
 
@@ -23,6 +24,7 @@ int main(void) {
     0x00, 0x00, 0xFF, // blue
     0xFF, 0x00, 0x00, // red
   };
+  cgif_result r;
   uint8_t numColorsLocal = 2;   // number of colors in aPalette
   uint8_t numColorsGlobal = 3;   // number of colors in aPalette
   //
@@ -37,6 +39,10 @@ int main(void) {
   gConfig.height                  = HEIGHT;
   gConfig.path                    = "global_plus_local_table.gif";
   pGIF = cgif_newgif(&gConfig);
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
   //
   // Add frame to GIF
   //
@@ -48,18 +54,24 @@ int main(void) {
   fConfig.numLocalPaletteEntries = numColorsLocal;
   fConfig.attrFlags = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
   fConfig.delay = 100;
-  cgif_addframe(pGIF, &fConfig); // append the new frame
+  r = cgif_addframe(pGIF, &fConfig); // append the new frame
   //
   // add next frame
   fConfig.attrFlags = 0;
   fConfig.genFlags = 0;
   memset(pImageData + WIDTH * 9, 2, WIDTH * 10);
-  cgif_addframe(pGIF, &fConfig); // append the new frame
+  r = cgif_addframe(pGIF, &fConfig); // append the new frame
   //
   free(pImageData);
   //
   // Free allocated space at the end of the session
   //
-  cgif_close(pGIF);
+  r = cgif_close(pGIF);
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }

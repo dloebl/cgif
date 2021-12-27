@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "cgif.h"
 
@@ -34,13 +35,17 @@ int main(void) {
   uint8_t aPalette[] = {0xFF, 0x00, 0x00,                                // red
                         0x00, 0xFF, 0x00,                                // green
                         0x00, 0x00, 0xFF};                               // blue
+  cgif_result r;
   uint8_t numColors = 3;                                                 // number of colors in aPalette (up to 256 possible)
   int numFrames = 39*4;                                                  // number of frames in the video
 
   // initialize the GIF-configuration and create a new GIF
   initGIFConfig(&gConfig, "animated_single_pixel.gif", WIDTH, HEIGHT, aPalette, numColors);
   pGIF = cgif_newgif(&gConfig);
-
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
   // create image frames and add them to GIF
   pImageData = malloc(WIDTH * HEIGHT);                                   // allocate memory for image data
   memset(pImageData, 0, WIDTH * HEIGHT);                                 // set everything to the first color
@@ -59,11 +64,20 @@ int main(void) {
     }
     pImageData[x + y*WIDTH] = 1;                                         // set color of next pixel to green
     initFrameConfig(&fConfig, pImageData, 5);                            // initialize the frame-configuration
-    cgif_addframe(pGIF, &fConfig);                                       // append the new frame
+    r = cgif_addframe(pGIF, &fConfig);                                   // append the new frame
+    if(r != CGIF_OK) {
+      break;
+    }
   }
   free(pImageData);                                                      // free image data when all frames are added
 
   // close created GIF-file and free allocated space
-  cgif_close(pGIF);
+  r = cgif_close(pGIF);
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }

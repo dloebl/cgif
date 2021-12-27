@@ -6,6 +6,8 @@ tests = [
   'animated_stripes_horizontal',
   'animated_stripe_pattern',
   'animated_stripe_pattern_2',
+  'eindex',
+  'ewrite',
   'global_plus_local_table',
   'global_plus_local_table_with_optim',
   'has_transparency',

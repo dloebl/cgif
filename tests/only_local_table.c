@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "cgif.h"
 
@@ -18,6 +19,7 @@ int main(void) {
     0x00, 0x00, 0x00, // black
     0xFF, 0xFF, 0xFF, // white
   };
+  cgif_result r;
   uint8_t numColors = 2;   // number of colors in aPalette
   //
   // Create new GIF
@@ -29,6 +31,10 @@ int main(void) {
   gConfig.height                  = HEIGHT;
   gConfig.path                    = "only_local_table.gif";
   pGIF = cgif_newgif(&gConfig);
+  if(pGIF == NULL) {
+    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
+    return 1;
+  }
   //
   // Add frame to GIF
   //
@@ -39,12 +45,18 @@ int main(void) {
   fConfig.pLocalPalette = aPalette;
   fConfig.numLocalPaletteEntries = numColors;
   fConfig.attrFlags = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
-  cgif_addframe(pGIF, &fConfig); // append the new frame
+  r = cgif_addframe(pGIF, &fConfig); // append the new frame
   //
   free(pImageData);
   //
   // Free allocated space at the end of the session
   //
-  cgif_close(pGIF);
+  r = cgif_close(pGIF);
+
+  // check for errors
+  if(r != CGIF_OK) {
+    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
+    return 2;
+  }
   return 0;
 }

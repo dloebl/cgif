@@ -32,7 +32,7 @@ int main(void) {
   uint8_t aPalette[] = {0xFF, 0x00, 0x00,                                // red
                         0x00, 0xFF, 0x00,                                // green
                         0x00, 0x00, 0xFF};                               // blue
-  uint8_t numColors = 3;                                                 // number of colors in aPalette (up to 256 possible)
+  uint16_t numColors = 3;                                                // number of colors in aPalette (up to 256 possible)
   int numFrames = 12;                                                    // number of frames in the video
 
   // initialize the GIF-configuration and create a new GIF
