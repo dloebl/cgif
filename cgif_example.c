@@ -30,16 +30,11 @@ int main(void) {
   uint8_t       aPalette[] = {0xFF, 0x00, 0x00,                 // red
                               0x00, 0xFF, 0x00,                 // green
                               0x00, 0x00, 0xFF};                // blue
-  cgif_result r;
   uint16_t numColors = 3;                                        // number of colors in aPalette (up to 256 possible)
 
   // initialize the GIF-configuration and create a new GIF
   initGIFConfig(&gConfig, "example_cgif.gif", WIDTH, HEIGHT, aPalette, numColors);
   pGIF = cgif_newgif(&gConfig);
-  if(pGIF == NULL) {
-    fputs("failed to create new GIF via cgif_newgif()\n", stderr);
-    return 1;
-  }
 
   // create image frame with stripe pattern
   pImageData = malloc(WIDTH * HEIGHT);                          // allocate memory for image data
@@ -48,17 +43,11 @@ int main(void) {
   }
 
   // add frame to GIF
-  initFrameConfig(&fConfig, pImageData); // initialize the frame-configuration
-  r = cgif_addframe(pGIF, &fConfig);     // add a new frame to the GIF
-  free(pImageData);                      // free image data when frame is added
+  initFrameConfig(&fConfig, pImageData);                         // initialize the frame-configuration
+  cgif_addframe(pGIF, &fConfig);                                 // add a new frame to the GIF
+  free(pImageData);                                              // free image data when frame is added
 
   // close GIF and free allocated space
-  r = cgif_close(pGIF);
-
-  // check for errors
-  if(r != CGIF_OK) {
-    fprintf(stderr, "failed to create GIF. error code: %d\n", r);
-    return 2;
-  }
+  cgif_close(pGIF);
   return 0;
 }
