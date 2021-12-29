@@ -9,6 +9,7 @@ a8c2e6153396de90eaa1947178b1e383  animated_stripe_pattern.gif
 11b1703658c920b6f86d32827291dde4  global_plus_local_table_with_optim.gif
 3eda7f993b36270db09929a289a5a106  has_transparency_2.gif
 c8bc7f745090e5f386e2c69f697c1343  has_transparency.gif
+b702bac8f8ded19ec1f58c1f80ee9208  local_transp.gif
 8c0e65694eef4f3ed986381cfe914b50  max_color_table_test.gif
 # too large for CI: dd8cb01f5b02c16cc346b51d1faadc63  max_size.gif
 30ab701c8e56bc8b09c824305002de5a  min_color_table_test.gif
