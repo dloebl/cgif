@@ -607,6 +607,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   CGIF_Frame*   pFrame;
   uint8_t* pTmpImageData;
   uint8_t* pBefImageData;
+  uint16_t numPaletteEntries;
   uint16_t imageWidth;
   uint16_t imageHeight;
   uint8_t  initialCodeSize;
@@ -630,6 +631,8 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   isFirstFrame    = ((&pGIF->firstFrame == pGIF->pCurFrame))                ? 1 : 0;
   useLocalTable   = (pFrame->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
   hasTransparency = (pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY)    ? 1 : 0;
+  // determine number of palette entries active for this frame
+  numPaletteEntries = (useLocalTable) ? pFrame->config.numLocalPaletteEntries : pGIF->config.numGlobalPaletteEntries;
   // deactivate impossible size optimizations 
   //  => in case user-defined transparency is used
   // CGIF_FRAME_GEN_USE_TRANSPARENCY and CGIF_FRAME_GEN_USE_DIFF_WINDOW are not possible
@@ -637,7 +640,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     pFrame->config.genFlags &= ~(CGIF_FRAME_GEN_USE_TRANSPARENCY | CGIF_FRAME_GEN_USE_DIFF_WINDOW);
   }
   // switch off transparency optimization if color table is full (no free spot for the transparent index), TBD: count used colors, adapt table
-  if(pGIF->config.numGlobalPaletteEntries == 256){
+  if(numPaletteEntries == 256){
     pFrame->config.genFlags &= ~CGIF_FRAME_GEN_USE_TRANSPARENCY;
   }
   
@@ -645,11 +648,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   memset(pFrame->aImageHeader, 0, sizeof(pFrame->aImageHeader));
 
   // calculate initial code length and initial dict length
-  if(useLocalTable) {
-    pFrame->initCodeLen = calcInitCodeLen(pFrame->config.numLocalPaletteEntries);
-  } else {
-    pFrame->initCodeLen = calcInitCodeLen(pGIF->config.numGlobalPaletteEntries);
-  }
+  pFrame->initCodeLen = calcInitCodeLen(numPaletteEntries);
   pFrame->initDictLen = 1uL << (pFrame->initCodeLen - 1);
 
   // set needed fields in frame header
@@ -666,7 +665,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   // check if we need to increase the initial code length in order to allow the transparency optim.
   // TBD revert this in case no transparency is possible
   if(pFrame->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) {
-    if(pFrame->initDictLen == (useLocalTable ? pFrame->config.numLocalPaletteEntries : pGIF->config.numGlobalPaletteEntries)) {
+    if(pFrame->initDictLen == numPaletteEntries) {
       ++(pFrame->initCodeLen);
       pFrame->initDictLen = 1uL << (pFrame->initCodeLen - 1);
     }
@@ -764,7 +763,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     rWrite |= write(pGIF, pFrame->aGraphicExt, 8);
   }
   rWrite |= write(pGIF, pFrame->aImageHeader, 10);
-  if(pFrame->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) {
+  if(useLocalTable) {
     rWrite |= write(pGIF, pFrame->aLocalColorTable, 3 << pow2LocalPalette);
   }
   rWrite |= write(pGIF, &initialCodeSize, 1);

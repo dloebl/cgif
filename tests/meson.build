@@ -12,6 +12,7 @@ tests = [
   'global_plus_local_table_with_optim',
   'has_transparency',
   'has_transparency_2',
+  'local_transp',
   'max_color_table_test',
   'min_color_table_test',
   'min_size',
