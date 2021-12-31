@@ -13,5 +13,4 @@ make
 ```
 
 ## Notes
-- GIF frames with more than 256 colors are currently not supported.
 - User-defined transparency is not yet supported.
