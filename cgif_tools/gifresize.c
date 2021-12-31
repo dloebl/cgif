@@ -190,6 +190,9 @@ static uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, ui
 
 // gifresize <input-gif> <output-gif> <new-width> <new-height>
 int main(int argn, char** pArgs) {
+  gif_result  resultDec;
+  cgif_result resultEnc;
+
   if(argn != 5) {
     fprintf(stderr, "%s\n", "invalid number of arguments\nsyntax:\ngifresize <input-gif> <output-gif> <new-width> <new-height>");
     return 1; // error
@@ -223,17 +226,14 @@ int main(int argn, char** pArgs) {
   gif_animation dGIF;
   gif_bitmap_callback_vt bcb = { cb_create, cb_destroy, cb_get_buffer, NULL, NULL, NULL };
   gif_create(&dGIF, &bcb);
-  gif_result r = gif_initialise(&dGIF, fileSize, pGIFData);
+  resultDec = gif_initialise(&dGIF, fileSize, pGIFData);
   //
   // check for errors
-  if(r != GIF_OK) {
+  if(resultDec != GIF_OK) {
     fprintf(stderr, "%s\n", "<input-gif> is not a valid GIF");
     free(pGIFData);
     return 5;
   }
-
-  uint8_t* pImageData = malloc(MULU16(newWidth, newHeight));
-  uint8_t* aPalette = malloc(256 * 3); // max size of palette
   //
   // init GIF and Frame config
   CGIF_Config gConf      = {0};
@@ -243,6 +243,14 @@ int main(int argn, char** pArgs) {
   gConf.height           = newHeight;
   gConf.numLoops         = dGIF.loop_count;
   CGIF* eGIF             = cgif_newgif(&gConf);
+  if(eGIF == NULL) {
+    fprintf(stderr, "failed to create output GIF\n");
+    gif_finalise(&dGIF);
+    free(pGIFData);
+    return 6;
+  }
+  uint8_t* pImageData = malloc(MULU16(newWidth, newHeight));
+  uint8_t* aPalette = malloc(256 * 3); // max size of palette
   CGIF_FrameConfig fConf = {0};
   fConf.pLocalPalette    = aPalette;
   fConf.pImageData       = pImageData;
@@ -251,8 +259,8 @@ int main(int argn, char** pArgs) {
 
   // encode frame by frame. generate one local color table per frame.
   for(uint32_t i = 0; i < dGIF.frame_count; ++i) {
-    r = gif_decode_frame(&dGIF, i);
-    if(r != GIF_OK) break; // error occurred
+    resultDec = gif_decode_frame(&dGIF, i);
+    if(resultDec != GIF_OK) break; // decode error occurred
     fConf.delay = dGIF.frames[i].frame_delay;
     uint8_t* pRGBA   = dGIF.frame_image;
     uint8_t* pNewRGB = resize_naive_rgb(pRGBA, dGIF.width, dGIF.height, newWidth, newHeight); // resize RGBA frame
@@ -261,19 +269,26 @@ int main(int argn, char** pArgs) {
       fConf.genFlags = CGIF_FRAME_GEN_USE_DIFF_WINDOW; // no space for transparent index
     }
     fConf.numLocalPaletteEntries = cntBlock;
-    cgif_addframe(eGIF, &fConf);
+    resultEnc = cgif_addframe(eGIF, &fConf);
     free(pNewRGB);
+    if(resultEnc != CGIF_OK) break; // encode error occurred
   }
-  cgif_close(eGIF);
+  resultEnc = cgif_close(eGIF);
   gif_finalise(&dGIF);
   //
   // free stuff
   free(pImageData);
   free(aPalette);
   free(pGIFData);
-  if(r != GIF_OK) {
+  // check for decoder errors
+  if(resultDec != GIF_OK) {
     fprintf(stderr, "%s\n", "failed to decode frame");
-    return 6;
+    return 7;
+  }
+  // check for encoder errors
+  if(resultEnc != CGIF_OK) {
+    fprintf(stderr, "failed to create output GIF\n");
+    return 8;
   }
   return 0;
 }
