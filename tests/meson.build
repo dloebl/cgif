@@ -34,5 +34,10 @@ foreach t : tests
     dependencies : [libcgif_dep],
     include_directories : ['..'],
   )
-  test(t, test_exe)
+  test(t, test_exe, priority : 0)
 endforeach
+
+md5sumc = find_program('scripts/md5sum.py')
+# get the ordering right:
+# md5sum check on output GIFs should be run once all of the above tests are done.
+test('check md5sums', md5sumc, args : [join_paths(meson.source_root(), 'tests/tests.md5')], workdir : meson.build_root(), priority : -1, is_parallel : false)

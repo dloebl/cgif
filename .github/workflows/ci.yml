@@ -16,19 +16,23 @@ jobs:
       - uses: actions/setup-python@v2
       - name: Dependencies (ubuntu)
         if: contains(matrix.os, 'ubuntu')
-        run: sudo apt install gifsicle valgrind
+        run: sudo apt install meson gifsicle valgrind
       - name: Dependencies (macos)
         if: contains(matrix.os, 'macos')
-        run: brew install gifsicle
+        run: brew install meson gifsicle
       - name: Dependencies (windows)
         if: contains(matrix.os, 'windows')
         run: choco install gifsicle
-      - name: Build and test
+      - name: Build and test (windows)
+        if: contains(matrix.os, 'windows')
         uses: BSFishy/meson-build@v1.0.3
         with:
           action: test
           meson-version: "0.59.0"
           ninja-version: "1.10.0.post3"
+      - name: Build and test (ubuntu & macos)
+        if: ${{ !contains(matrix.os, 'windows') }}
+        run: meson setup build && meson test -C build
       - name: Check MD5 hashes
         if: contains(matrix.os, 'ubuntu')
         working-directory: build
@@ -39,14 +43,8 @@ jobs:
         shell: bash
       - name: Valgrind
         if: contains(matrix.os, 'ubuntu')
-        uses: BSFishy/meson-build@v1.0.3
-        with:
-          action: test
-          options: "--wrap valgrind"
-          meson-version: "0.59.0"
-          ninja-version: "1.10.0.post3"
-        env:
-          VALGRIND_OPTS: "--memcheck:leak-check=full --memcheck:show-leak-kinds=definite --memcheck:error-exitcode=1"
+        run: basename -s .c tests/*.c | xargs meson test -C build --wrap "valgrind --memcheck:leak-check=full --memcheck:show-leak-kinds=definite --memcheck:error-exitcode=1"
+        shell: bash
       - name: Valgrind output
         if: contains(matrix.os, 'ubuntu')
         run: cat build/meson-logs/testlog-valgrind.txt
