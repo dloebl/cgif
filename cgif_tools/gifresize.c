@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <math.h>
 
 #define MULU16(a, b) (((uint32_t)a) * ((uint32_t)b)) // helper macro to correctly multiply two U16's without default signed int promotion
 
@@ -28,6 +29,19 @@ static uint64_t getFileSize(FILE* pFile) {
   long endPos = ftell(pFile);
   fseek(pFile, curPos, SEEK_SET);
   return endPos;
+}
+
+static uint64_t argmax64(float* arry, uint64_t n){
+  uint64_t imax = 0;
+  float vmax = 0;
+
+  for(uint64_t i = 0; i < n; ++i) {
+    if(arry[i] > vmax){
+      imax = i;
+      vmax = arry[i];
+    }
+  }
+  return imax;
 }
 
 /* resize image without any color averaging and reusing (RGB) colors from before */
@@ -63,6 +77,165 @@ static uint32_t col_hash(const uint8_t* rgb, const uint8_t* hashTable, const uin
     }
   }
   return h;
+}
+
+/* take array indexed by hash(rgb) and turn it into a dense array */
+static uint32_t* hash_to_dense(const uint8_t* pPalette, const uint32_t* arry, uint32_t cnt, const uint8_t* hashTable, const uint8_t* indexUsed, uint32_t tableSize){
+  // pPalette: color tabel with cnt entries
+  // arry: array indexed by hash of RGB-value in pPalette
+  uint32_t* arryDense = malloc(sizeof(uint32_t) * cnt);
+  uint32_t h;
+
+  for(uint32_t i = 0; i < cnt; ++i) {
+    h = col_hash(&pPalette[3 * i], hashTable, indexUsed, tableSize);
+    arryDense[i] = arry[h];
+  }
+  return arryDense;
+}
+
+/* get mean of color-cloud along all 3 dimensions (at least one color must be present, otherwise div 0 issue)*/
+static void get_mean(const uint8_t* pPalette, const uint32_t* frequ, uint32_t idxMin, uint32_t idxMax, float* mean){
+  // pPalette: RGB color palette
+  // frequ: frequency of the colors (indexing as pPalette, no hashing)
+  // idxMin, idxMax: palette range for which the mean is computed
+  // mean: mean value along all three dimensions
+  float m[3]   = {0,0,0};
+  float sum[3] = {0,0,0};
+  uint32_t i;
+  uint8_t dim;
+
+  for(i = idxMin; i <= idxMax; ++i) {
+    for(dim = 0; dim < 3; ++dim) {
+      sum[dim] += frequ[i];
+      m[dim]   += frequ[i] * pPalette[3 * i + dim];
+    }
+  }
+  for(dim = 0; dim < 3; ++dim) {
+    mean[dim] = m[dim] / sum[dim];
+  }
+}
+
+/* get variance of color-cloud along all 3 dimensions*/
+static void get_variance(const uint8_t* pPalette, const uint32_t* frequ, uint32_t idxMin, uint32_t idxMax, float* var, float* mean){
+  // pPalette: RGB color palette
+  // frequ: frequency of the colors (indexing as pPalette, no hashing)
+  // idxMin, idxMax: palette range for which the variance is computed
+  // var/mean: variance/mean value along all three dimensions (array with 3 entries)
+  uint32_t i;
+  uint8_t dim;
+  float v[3] = {0,0,0};
+  float sum[3] = {0,0,0};
+
+  get_mean(pPalette, frequ, idxMin, idxMax, mean);
+  for(i = idxMin; i <= idxMax; ++i) {
+    for(dim = 0; dim < 3; ++dim) {
+      sum[dim] += frequ[i];
+      v[dim]   += frequ[i] * (pPalette[3 * i + dim] - mean[dim]) * (pPalette[3 * i + dim] - mean[dim]);
+    }
+  }
+  for(dim = 0; dim < 3; ++dim) {
+    var[dim] = v[dim] / sum[dim];
+  }
+}
+
+typedef struct treeNode {
+  struct treeNode* child0; // pointer to child-node (elements smaller or equal than mean)
+  struct treeNode* child1; // pointer to child-node (elements larger than mean)
+  float mean[3];           // average of the colors
+  uint32_t idxMin, idxMax; // minimum and maximum index referring to global palette
+  uint8_t cutDim;          // dimension along which the cut (node split) is done
+  uint8_t colIdx;          // color index (only meaningful for leave node)
+  uint8_t height;          // node height
+  bool isLeave;            // is leave node or not
+} treeNode;
+
+static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* numLeaveNodes, uint32_t idxMin, uint32_t idxMax, uint8_t height, uint8_t colIdx) {
+  float var[3];
+
+  treeNode* node = malloc(sizeof(treeNode));
+  node->idxMin   = idxMin; // minimum color in pPalette belonging to the node
+  node->idxMax   = idxMax; // maximum color in pPalette belonging to the node
+  get_variance(pPalette, frequ, idxMin, idxMax, var, node->mean);
+  node->cutDim  = argmax64(var, 3); // dimension along which the cut (node split) is done
+  node->height  = height; // node height
+  node->colIdx  = colIdx; // index referring to (averaged) color in new color table
+  node->isLeave = 1;      // every new node starts as a leave node
+  (*numLeaveNodes)++;     // increase counter when leave node is added
+  return node;
+}
+
+/* create the decision tree. (Similar to qsort with limited depth: pPalette, frequ get sorted) */
+static void crawl_decision_tree(treeNode* parent, uint16_t* numLeaveNodes, uint8_t* pPalette, uint32_t* frequ, uint16_t colMax, uint8_t depthMax) {
+  uint32_t i, k, saveNum;
+  uint8_t saveBlk[3];
+
+  if(*numLeaveNodes <= (colMax - 1) && (parent->idxMax - parent->idxMin) >= 1 && parent->height < depthMax) { // conditions for a node split
+    i = parent->idxMin; // start of block minimum
+    k = parent->idxMax; // start at block maximum
+    while(i < k) { // split parent node in two blocks (like one step in qsort)
+      for(; pPalette[3 * i + parent->cutDim] <= parent->mean[parent->cutDim]; ++i); // && i<parent->idxMax not needed (other condition is false when i==parent>idxMax since there must be at most 1 element above mean)
+      for(; pPalette[3 * k + parent->cutDim] > parent->mean[parent->cutDim];  --k); // && k>parent->idxMin not needed (other condition is false when k==parent>idxMin since there must be at most 1 element below mean)
+      if(k > i) {
+        memcpy(saveBlk, &(pPalette[3 * i]), 3);
+        memcpy(&(pPalette[3 * i]), &(pPalette[3 * k]), 3); // swap RGB-blocks in pPalette
+        memcpy(&(pPalette[3 * k]), saveBlk, 3);            // swap RGB-blocks in pPalette
+        saveNum  = frequ[k];
+        frequ[k] = frequ[i]; // swap also the frequency
+        frequ[i] = saveNum;  // sawp also the frequency
+      }
+    }
+    parent->isLeave = 0; // parent is no leave node anymore when children added
+    (*numLeaveNodes)--;  // decrease counter since parent is removed as a leave node
+    parent->child0 = new_tree_node(pPalette, frequ, numLeaveNodes, parent->idxMin, i - 1, parent->height + 1, parent->colIdx); // i-1 is last index of 1st block, one child takes color index from parent
+    parent->child1 = new_tree_node(pPalette, frequ, numLeaveNodes, i, parent->idxMax, parent->height + 1, *numLeaveNodes);
+    crawl_decision_tree(parent->child0, numLeaveNodes, pPalette, frequ, colMax, depthMax);
+    crawl_decision_tree(parent->child1, numLeaveNodes, pPalette, frequ, colMax, depthMax);
+  }
+}
+
+/* fill 256 color table using the decision tree */
+static void get_palette_from_decision_tree(const treeNode* root, uint8_t* pPalette256){
+  if(root->isLeave == 0) {
+    get_palette_from_decision_tree(root->child0, pPalette256);
+    get_palette_from_decision_tree(root->child1, pPalette256);
+  } else {
+    pPalette256[3 * root->colIdx]     = (uint8_t)roundf(root->mean[0]);
+    pPalette256[3 * root->colIdx + 1] = (uint8_t)roundf(root->mean[1]);
+    pPalette256[3 * root->colIdx + 2] = (uint8_t)roundf(root->mean[2]);
+  }
+}
+
+/* get color index by using the decision tree */
+static uint8_t get_leave_node_index(const treeNode* root, const uint8_t* rgb) {
+  if(root->isLeave == 0) { // if there is a split
+    if(rgb[root->cutDim] <= root->mean[root->cutDim]) {
+      return get_leave_node_index(root->child0, rgb);
+    } else {
+      return get_leave_node_index(root->child1, rgb);
+    }
+  } else {
+    return root->colIdx; // return color index of leave node
+  }
+}
+
+/* color quantization with mean cut method (TBD? switch to median cut)
+   (works with dense palette, no hash table) */
+static treeNode* create_decision_tree(uint8_t* pPalette,  uint32_t* pFrequDense, uint8_t* pPalette256, uint32_t cnt, uint16_t colMax, uint8_t depthMax){
+  uint16_t numLeaveNodes = 0;
+
+  treeNode* root = new_tree_node(pPalette, pFrequDense, &numLeaveNodes, 0, cnt - 1, 0, 0);
+  crawl_decision_tree(root, &numLeaveNodes, pPalette, pFrequDense, colMax, depthMax);
+  get_palette_from_decision_tree(root, pPalette256); // fill the reduced color table
+  return root;
+}
+
+/* free memory allocated for the tree */
+static void free_decision_tree(treeNode* root){
+  if(root->isLeave == 0) { // if the node has children
+    free_decision_tree(root->child0);
+    free_decision_tree(root->child1);
+  }
+  free(root); // free root once free is called for children
 }
 
 /* get index in static tree with fixed boxes for rgb */
@@ -107,68 +280,77 @@ static uint8_t quantize_static_tree(uint8_t* pPalette, uint8_t* pPalette256, uin
 // numPixel:      number of pixels of input image
 // pImageData:    pointer to image as indices (output)
 // palette:       pointer to color palette (output)
-static uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint8_t* pImageData, uint8_t* pPalette256) {
+// pPalette256:   new color palette with 256 colors max.
+// depthMax:      maximum depth of decision tree for colors quantization (sets number of colors)
+static uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint8_t* pImageData, uint8_t* pPalette256, uint8_t depthMax) {
   uint32_t i,j,h;
-  uint32_t  cnt       = 0;            // count the number of colors
-  uint32_t  tableSize = 512;          // size of the hash table
-  uint32_t* colIdx = malloc(sizeof(uint32_t)*tableSize); // index of the color
-  uint32_t* frequ = malloc(sizeof(uint32_t)*tableSize); // frequency of colors
-  uint8_t* hashTable = malloc(3 * tableSize); // stores RGB vales at position determined by hash
-  uint8_t* indexUsed = malloc(tableSize); // which part of the hash table was already used
-  uint8_t* hashTable_new = malloc(3 * tableSize); //for new hash table
-  uint8_t* indexUsed_new = malloc(tableSize); //for new hash table
+  uint32_t  cnt       = 0;                                  // count the number of colors
+  uint32_t  tableSize = 512;                                // size of the hash table
+  uint32_t* colIdx = malloc(sizeof(uint32_t)*tableSize);    // index of the color
+  uint32_t* frequ = malloc(sizeof(uint32_t)*tableSize);     // frequency of colors
+  uint8_t* hashTable = malloc(3 * tableSize);               // stores RGB vales at position determined by hash
+  uint8_t* indexUsed = malloc(tableSize);                   // which part of the hash table was already used
+  uint8_t* hashTable_new = malloc(3 * tableSize);           // for new hash table
+  uint8_t* indexUsed_new = malloc(tableSize);               // for new hash table
   uint32_t* frequ_new = malloc(sizeof(uint32_t)*tableSize); // for new hash table
   uint8_t* pPalette = malloc(3 * tableSize);
-  memset(pPalette, 0, 3 * tableSize); //unused part of color table is uninitialized otheriwse
-  memset(indexUsed, 0, tableSize);
 
+  memset(pPalette, 0, 3 * tableSize);                       // unused part of color table is uninitialized otheriwse
+  memset(indexUsed, 0, tableSize);
   for(i = 0; i < numPixel; ++i){
     h = col_hash(&pImageDataRGB[3 * i], hashTable, indexUsed, tableSize);
     if(indexUsed[h] == 0){
-      memcpy(&hashTable[3 * h], &pImageDataRGB[3 * i], 3); // add new color to hash table
+      memcpy(&hashTable[3 * h],  &pImageDataRGB[3 * i], 3); // add new color to hash table
       memcpy(&pPalette[3 * cnt], &pImageDataRGB[3 * i], 3); // add new color to palette
       indexUsed[h] = 1;
-      colIdx[h] = cnt;
-      frequ[h] = 1;
+      colIdx[h]    = cnt;
+      frequ[h]     = 1;
       ++cnt; // one new color added
     } else { // if color exists already
       frequ[h] += 1;
     }
     // resize the hash table (if more than half-full)
-    if(cnt > tableSize / 2){
-      pPalette = realloc(pPalette, 3 * 2 * tableSize);
-      colIdx = realloc(colIdx, sizeof(uint32_t) * 2 * tableSize);
+    if(cnt > (tableSize >> 1)) {
+      pPalette      = realloc(pPalette, 3 * 2 * tableSize);
+      colIdx        = realloc(colIdx, sizeof(uint32_t) * 2 * tableSize);
       hashTable_new = realloc(hashTable_new, 3 * 2 * tableSize);
       indexUsed_new = realloc(indexUsed_new, 2 * tableSize);
-      frequ_new = realloc(frequ_new, sizeof(uint32_t) * 2 * tableSize);
+      frequ_new     = realloc(frequ_new, sizeof(uint32_t) * 2 * tableSize);
       memset(indexUsed_new, 0, 2 * tableSize);
       cnt = 0;
       for(j = 0; j < tableSize; ++j){
-        if(indexUsed[j]==1){
+        if(indexUsed[j] == 1){
           h = col_hash(&hashTable[3 * j], hashTable_new, indexUsed_new, 2 * tableSize); // recompute hash
           memcpy(&hashTable_new[3 * h], &hashTable[3 * j], 3);
           memcpy(&pPalette[3 * cnt], &hashTable[3 * j], 3);
           indexUsed_new[h] = 1;
-          frequ_new[h] = frequ[j];
-          colIdx[h] = cnt;
+          frequ_new[h]     = frequ[j];
+          colIdx[h]        = cnt;
           ++cnt;
         }
       }
-      tableSize = tableSize * 2; // increase table size
+      tableSize <<= 1; // double table size
       hashTable = realloc(hashTable, 3 * tableSize);
       indexUsed = realloc(indexUsed, tableSize);
-      frequ = realloc(frequ, sizeof(uint32_t) * tableSize);
+      frequ     = realloc(frequ, sizeof(uint32_t) * tableSize);
       memcpy(hashTable, hashTable_new, 3 * tableSize);
       memcpy(indexUsed, indexUsed_new, tableSize);
       memcpy(frequ, frequ_new, tableSize*sizeof(uint32_t));
     }
   }
 
-  if(cnt > 256) { // color-quantization is needed
-    cnt = quantize_static_tree(pPalette, pPalette256, hashTable, indexUsed, frequ, cnt, tableSize); // set pPalette256
-    for(i = 0; i < numPixel; ++i){
-      pImageData[i] = get_static_tree_index_256(&pImageDataRGB[3 * i]); // use quantized colors
+  const uint16_t colMax = (1uL << depthMax) - 1; // maximum number of colors (-1 to leave space for transparency), TBD: maybe no quantization for static image with 256 colors
+  if(cnt > colMax) { // color-quantization is needed
+    uint32_t* pFrequDense = hash_to_dense(pPalette, frequ, cnt, hashTable, indexUsed, tableSize);
+    treeNode* root        = create_decision_tree(pPalette, pFrequDense, pPalette256, cnt, colMax, depthMax); // create decision tree (dynamic, splits along rgb-dimension with highest variance)
+    for(i = 0; i < numPixel; ++i) {
+      pImageData[i] = get_leave_node_index(root, &pImageDataRGB[3 * i]);  // use decision tree to get indices for new colors
     }
+    //cnt = quantize_static_tree(pPalette, pPalette256, hashTable, indexUsed, frequ, cnt, tableSize); // create static tree for color quantization
+    //for(i = 0; i < numPixel; ++i) pImageData[i] = get_static_tree_index_256(&pImageDataRGB[3 * i]); // use static tree to get new colors
+    free_decision_tree(root);
+    free(pFrequDense);
+    cnt = colMax;
   } else { // no color-quantization is needed
     for(i = 0; i < numPixel; ++i){
       h = col_hash(&pImageDataRGB[3 * i], hashTable, indexUsed, tableSize);
@@ -264,10 +446,7 @@ int main(int argn, char** pArgs) {
     fConf.delay = dGIF.frames[i].frame_delay;
     uint8_t* pRGBA   = dGIF.frame_image;
     uint8_t* pNewRGB = resize_naive_rgb(pRGBA, dGIF.width, dGIF.height, newWidth, newHeight); // resize RGBA frame
-    int cntBlock  = rgb_to_index(pNewRGB, MULU16(newWidth, newHeight), pImageData, aPalette); // get local palette from RGB frame
-    if(cntBlock >= 256){
-      fConf.genFlags = CGIF_FRAME_GEN_USE_DIFF_WINDOW; // no space for transparent index
-    }
+    int cntBlock  = rgb_to_index(pNewRGB, MULU16(newWidth, newHeight), pImageData, aPalette, 8); // get local palette from RGB frame
     fConf.numLocalPaletteEntries = cntBlock;
     resultEnc = cgif_addframe(eGIF, &fConf);
     free(pNewRGB);

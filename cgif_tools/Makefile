@@ -1,5 +1,5 @@
 gifresize: gifresize.c ../cgif.c
-	$(CC) -o gifresize -O2 -I.. -I../ext/libnsgif/include gifresize.c ../cgif.c ../ext/libnsgif/src/libnsgif.c ../ext/libnsgif/src/lzw.c
+	$(CC) -o gifresize -O2 -I.. -I../ext/libnsgif/include gifresize.c ../cgif.c ../ext/libnsgif/src/libnsgif.c ../ext/libnsgif/src/lzw.c -lm
 
 .PHONY: clean
 
