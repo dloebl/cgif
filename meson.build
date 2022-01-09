@@ -8,13 +8,14 @@ project(
 
 lib = library(
   'cgif',
-  'cgif.c',
+  'src/cgif.c',
+  include_directories : ['inc/'],
   soversion : '0',
   version : '0.2.0',
   install : true,
 )
 
-install_headers('cgif.h')
+install_headers('inc/cgif.h')
 
 import('pkgconfig').generate(
   lib,
