@@ -59,6 +59,14 @@ static int writecb(void* pContext, const uint8_t* pData, const size_t numBytes) 
   return 0;
 }
 
+/* free space allocated for CGIF struct */
+static void freeCGIF(CGIF* pGIF) {
+  if((pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
+    free(pGIF->config.pGlobalPalette);
+  }
+  free(pGIF);
+}
+
 /* create a new GIF */
 CGIF* cgif_newgif(CGIF_Config* pConfig) {
   FILE*          pFile;
@@ -108,7 +116,7 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
     if(pFile) {
       fclose(pFile);
     }
-    free(pGIF);
+    freeCGIF(pGIF);
     return NULL;
   }
 
@@ -412,10 +420,7 @@ CGIF_CLOSE_Cleanup:
   }
 
   result = pGIF->curResult;
-  if((pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
-    free(pGIF->config.pGlobalPalette);
-  }
-  free(pGIF);
+  freeCGIF(pGIF);
   // catch internal value CGIF_PENDING
   if(result == CGIF_PENDING) {
     result = CGIF_ERROR;
