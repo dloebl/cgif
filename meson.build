@@ -6,9 +6,10 @@ project(
   default_options : ['c_std=c99'],
 )
 
+cgif_sources = ['src/cgif.c', 'src/cgif_raw.c']
 lib = library(
   'cgif',
-  'src/cgif.c',
+  cgif_sources,
   include_directories : ['inc/'],
   soversion : '0',
   version : '0.2.0',
