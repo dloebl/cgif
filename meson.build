@@ -6,10 +6,14 @@ project(
   default_options : ['c_std=c99'],
 )
 
-cgif_sources = ['src/cgif.c', 'src/cgif_raw.c']
+cc = meson.get_compiler('c')
+m_dep = cc.find_library('m', required : false)
+
+cgif_sources = ['src/cgif.c', 'src/cgif_raw.c', 'src/cgif_rgb.c']
 lib = library(
   'cgif',
   cgif_sources,
+  dependencies : m_dep,
   include_directories : ['inc/'],
   soversion : '0',
   version : '0.3.0',
