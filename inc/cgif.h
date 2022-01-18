@@ -32,7 +32,6 @@ typedef enum {
 } cgif_result;
 
 typedef struct st_gif         CGIF;                      // struct for the full GIF
-typedef struct st_frame       CGIF_Frame;                // struct for a single frame
 typedef struct st_gifconfig    CGIF_Config;                // global cofinguration parameters of the GIF
 typedef struct st_frameconfig  CGIF_FrameConfig;           // local configuration parameters for a frame
 
@@ -67,39 +66,6 @@ struct st_frameconfig {
   uint32_t  genFlags;                                  // flags that determine how the GIF frame is created (e.g. optimization)
   uint16_t  delay;                                     // delay before the next frame is shown (units of 0.01 s)
   uint16_t  numLocalPaletteEntries;                    // size of the local color table
-};
-
-// CGIF_Frame type
-// note: internal sections, subject to change in future versions
-struct st_frame {
-  CGIF_FrameConfig   config;                             // (internal) configutation parameters of the frame (see above)
-  struct st_frame*  pBef;                              // (internal) pointer to frame before (needed e.g. for transparency optimization)
-  struct st_frame*  pNext;                             // (internal) pointer to next frame
-  uint8_t*          pRasterData;                       // (internal) pointer to LZW-data
-  uint32_t          sizeRasterData;                    // (internal) size of the LZW-data
-  uint16_t          initDictLen;                       // (internal) length of the initial color dictionary (maximum 256)
-  uint16_t          width;                             // actual width of frame
-  uint16_t          height;                            // actual height of frame
-  uint16_t          top;                               // actual top offset of frame
-  uint16_t          left;                              // actual left offset of frame
-  uint8_t           transIndex;                        // (internal) index indicating transparent pixel
-  uint8_t           aGraphicExt[8];                    //
-  uint8_t           aImageHeader[10];                  // (internal) header of the frame
-  uint8_t           aLocalColorTable[256 * 3];         //
-  uint8_t           initCodeLen;                       // initial length of the LZW-codes in bits (minimum 3, maximum 12)
-};
-
-// CGIF type
-// note: internal sections, subject to change in future versions
-struct st_gif {
-  CGIF_Config config;                                      // (internal) configutation parameters of the GIF (see above)
-  FILE*        pFile;
-  uint8_t      aHeader[13];                              // (internal) header of the GIF
-  uint8_t      aGlobalColorTable[256 * 3];               // (internal) global color table
-  uint8_t      aAppExt[19];                              //
-  CGIF_Frame*  pCurFrame;                                // (internal) pointer to current frame
-  CGIF_Frame   firstFrame;                                // (internal) pointer to next frame
-  cgif_result  curResult;
 };
 
 #ifdef __cplusplus
