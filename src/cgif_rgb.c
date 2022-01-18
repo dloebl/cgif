@@ -418,6 +418,7 @@ CGIFrgb* cgif_rgb_newgif(const CGIFrgb_Config* pConfig) {
   CGIFrgb* pGIFrgb;
   
   pGIFrgb = malloc(sizeof(CGIFrgb));
+  memset(pGIFrgb, 0, sizeof(CGIFrgb));
   idxConfig.pWriteFn  = pConfig->pWriteFn;
   idxConfig.pContext  = pConfig->pContext;
   idxConfig.path      = pConfig->path;
