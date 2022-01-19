@@ -1,5 +1,6 @@
 tests = [
   'all_optim',
+  'alpha',
   'animated_color_gradient',
   'animated_single_pixel',
   'animated_snake',
@@ -24,6 +25,7 @@ tests = [
   'overlap_everything_only_trans',
   'overlap_some_rows',
   'trans_inc_initdict',
+  'user_trans',
   'write_fn',
 ]
 
