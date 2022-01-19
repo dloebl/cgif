@@ -135,6 +135,9 @@ static int cmpPixel(const CGIF* pGIF, const CGIF_FrameConfig* pCur, const CGIF_F
   if((pCur->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) && iCur == pCur->transIndex) {
     return 0; // identical
   }
+  if((pBef->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) && iBef == pBef->transIndex) {
+    return 1; // done: cannot compare
+  }
   // TBD add safety checks
   pBefCT = (pBef->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pBef->pLocalPalette : pGIF->config.pGlobalPalette; // local or global table used?
   pCurCT = (pCur->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pCur->pLocalPalette : pGIF->config.pGlobalPalette; // local or global table used?
@@ -344,7 +347,10 @@ static void copyFrameConfig(CGIF_FrameConfig* pDest, CGIF_FrameConfig* pSrc) {
   pDest->genFlags               = pSrc->genFlags;
   pDest->delay                  = pSrc->delay;
   pDest->numLocalPaletteEntries = pSrc->numLocalPaletteEntries;
-  // do not copy transIndex as it was introduced with V0.2.0
+  // copy transIndex if necessary (field added with V0.2.0)
+  if(pSrc->attrFlags & (CGIF_FRAME_ATTR_HAS_ALPHA | CGIF_FRAME_ATTR_HAS_SET_TRANS)) {
+    pDest->transIndex = pSrc->transIndex;
+  }
 }
 
 /* queue a new GIF frame */
