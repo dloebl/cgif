@@ -347,7 +347,7 @@ static void copyFrameConfig(CGIF_FrameConfig* pDest, CGIF_FrameConfig* pSrc) {
   pDest->genFlags               = pSrc->genFlags;
   pDest->delay                  = pSrc->delay;
   pDest->numLocalPaletteEntries = pSrc->numLocalPaletteEntries;
-  // copy transIndex if necessary (field added with V0.2.0)
+  // copy transIndex if necessary (field added with V0.2.0; avoid binary incompatibility)
   if(pSrc->attrFlags & (CGIF_FRAME_ATTR_HAS_ALPHA | CGIF_FRAME_ATTR_HAS_SET_TRANS)) {
     pDest->transIndex = pSrc->transIndex;
   }
@@ -368,7 +368,12 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   hasSetTransp = (pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) ? 1 : 0;  // user provided transparency setting (identical areas marked by user)
   // check for invalid configs:
   // cannot set alpha channel and user-provided transparency at the same time.
-  if(hasAlpha && hasTrans) {
+  if(hasAlpha && hasSetTransp) {
+    pGIF->curResult = CGIF_ERROR;
+    return pGIF->curResult;
+  }
+  // cannot set global and local alpha channel at the same time
+  if((pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY) && (pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_ALPHA)) {
     pGIF->curResult = CGIF_ERROR;
     return pGIF->curResult;
   }
@@ -415,7 +420,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   if(pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_ALPHA) {
     pGIF->aFrames[i]->transIndex = pConfig->transIndex;
     if(pGIF->aFrames[i - 1] != NULL) {
-      pGIF->aFrames[i - 1]->config.genFlags &= ~(CGIF_FRAME_GEN_USE_TRANSPARENCY | CGIF_FRAME_GEN_USE_DIFF_WINDOW);
+      pGIF->aFrames[i - 1]->config.genFlags &= ~(CGIF_FRAME_GEN_USE_DIFF_WINDOW); // width/height optim not possible for frame before
       pGIF->aFrames[i - 1]->disposalMethod   = DISPOSAL_METHOD_BACKGROUND; // restore to background color
     }
   }
