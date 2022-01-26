@@ -11,8 +11,10 @@ extern "C" {
 // flags to set the GIF/frame-attributes
 #define CGIF_ATTR_IS_ANIMATED            (1uL << 1)       // make an animated GIF (default is non-animated GIF)
 #define CGIF_ATTR_NO_GLOBAL_TABLE        (1uL << 2)       // disable global color table (global color table is default)
-#define CGIF_ATTR_HAS_TRANSPARENCY       (1uL << 3)       // first entry in color table contains transparency
+#define CGIF_ATTR_HAS_TRANSPARENCY       (1uL << 3)       // first entry in color table contains transparency (alpha channel)
 #define CGIF_FRAME_ATTR_USE_LOCAL_TABLE  (1uL << 0)       // use a local color table for a frame (local color table is not used by default)
+#define CGIF_FRAME_ATTR_HAS_ALPHA        (1uL << 1)       // alpha channel index provided by user (transIndex field)
+#define CGIF_FRAME_ATTR_HAS_SET_TRANS    (1uL << 2)       // transparency setting provided by user (transIndex field)
 // flags to decrease GIF-size
 #define CGIF_FRAME_GEN_USE_TRANSPARENCY  (1uL << 0)       // use transparency optimization (setting pixels identical to previous frame transparent)
 #define CGIF_FRAME_GEN_USE_DIFF_WINDOW   (1uL << 1)       // do encoding just for the sub-window that has changed from previous frame
@@ -31,9 +33,9 @@ typedef enum {
   CGIF_PENDING,
 } cgif_result;
 
-typedef struct st_gif         CGIF;                      // struct for the full GIF
-typedef struct st_gifconfig    CGIF_Config;                // global cofinguration parameters of the GIF
-typedef struct st_frameconfig  CGIF_FrameConfig;           // local configuration parameters for a frame
+typedef struct st_gif                  CGIF;              // struct for the full GIF
+typedef struct st_gifconfig            CGIF_Config;       // global cofinguration parameters of the GIF
+typedef struct st_frameconfig          CGIF_FrameConfig;  // local configuration parameters for a frame
 
 typedef int cgif_write_fn(void* pContext, const uint8_t* pData, const size_t numBytes); // callback function for stream-based output
 
@@ -66,6 +68,7 @@ struct st_frameconfig {
   uint32_t  genFlags;                                  // flags that determine how the GIF frame is created (e.g. optimization)
   uint16_t  delay;                                     // delay before the next frame is shown (units of 0.01 s)
   uint16_t  numLocalPaletteEntries;                    // size of the local color table
+  uint8_t   transIndex;                                // introduced with V0.2.0
 };
 
 #ifdef __cplusplus

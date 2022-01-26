@@ -132,6 +132,12 @@ static int cmpPixel(const CGIF* pGIF, const CGIF_FrameConfig* pCur, const CGIF_F
   uint8_t* pBefCT; // color table to use for pBef
   uint8_t* pCurCT; // color table to use for pCur
 
+  if((pCur->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) && iCur == pCur->transIndex) {
+    return 0; // identical
+  }
+  if((pBef->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) && iBef == pBef->transIndex) {
+    return 1; // done: cannot compare
+  }
   // TBD add safety checks
   pBefCT = (pBef->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pBef->pLocalPalette : pGIF->config.pGlobalPalette; // local or global table used?
   pCurCT = (pCur->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pCur->pLocalPalette : pGIF->config.pGlobalPalette; // local or global table used?
@@ -235,7 +241,7 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   DimResult           dimResult;
   uint8_t*            pTmpImageData;
   uint8_t*            pBefImageData;
-  int                 isFirstFrame, useLCT, hasTrans;
+  int                 isFirstFrame, useLCT, hasAlpha, hasSetTransp;
   uint16_t            numPaletteEntries;
   uint16_t            imageWidth, imageHeight, width, height, top, left;
   uint8_t             transIndex, disposalMethod;
@@ -245,18 +251,24 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   imageHeight    = pGIF->config.height;
   isFirstFrame   = (pBef == NULL) ? 1 : 0;
   useLCT         = (pCur->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
-  hasTrans       = (pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY)      ? 1 : 0;
+  hasAlpha       = ((pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY) || (pCur->config.attrFlags & CGIF_FRAME_ATTR_HAS_ALPHA)) ? 1 : 0;
+  hasSetTransp   = (pCur->config.attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) ? 1 : 0;
   disposalMethod = pCur->disposalMethod;
   transIndex     = pCur->transIndex;
   // deactivate impossible size optimizations 
-  //  => in case user-defined transparency is used
+  //  => in case alpha channel is used
   // CGIF_FRAME_GEN_USE_TRANSPARENCY and CGIF_FRAME_GEN_USE_DIFF_WINDOW are not possible
-  if(isFirstFrame || hasTrans) {
+  if(isFirstFrame || hasAlpha) {
     pCur->config.genFlags &= ~(CGIF_FRAME_GEN_USE_TRANSPARENCY | CGIF_FRAME_GEN_USE_DIFF_WINDOW);
+  }
+  // transparency setting (which areas are identical to the frame before) provided by user:
+  // CGIF_FRAME_GEN_USE_TRANSPARENCY not possible
+  if(hasSetTransp) {
+    pCur->config.genFlags &= ~(CGIF_FRAME_GEN_USE_TRANSPARENCY);
   }
   numPaletteEntries = (useLCT) ? pCur->config.numLocalPaletteEntries : pGIF->config.numGlobalPaletteEntries;
   // switch off transparency optimization if color table is full (no free spot for the transparent index), TBD: count used colors, adapt table
-  if(numPaletteEntries == 256){
+  if(numPaletteEntries == 256) {
     pCur->config.genFlags &= ~CGIF_FRAME_GEN_USE_TRANSPARENCY;
   }
 
@@ -302,7 +314,7 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   rawConfig.pLCT           = pCur->config.pLocalPalette;
   rawConfig.pImageData     = (pTmpImageData) ? pTmpImageData : pCur->config.pImageData;
   rawConfig.attrFlags      = 0;
-  if(hasTrans || (pCur->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY)) {
+  if(hasAlpha || (pCur->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) || hasSetTransp) {
     rawConfig.attrFlags |= CGIF_RAW_FRAME_ATTR_HAS_TRANS;
   }
   rawConfig.width          = width;
@@ -328,14 +340,41 @@ static void freeFrame(CGIF_Frame* pFrame) {
   }
 }
 
+static void copyFrameConfig(CGIF_FrameConfig* pDest, CGIF_FrameConfig* pSrc) {
+  pDest->pLocalPalette          = pSrc->pLocalPalette; // might need a deep copy
+  pDest->pImageData             = pSrc->pImageData;    // might need a deep copy
+  pDest->attrFlags              = pSrc->attrFlags;
+  pDest->genFlags               = pSrc->genFlags;
+  pDest->delay                  = pSrc->delay;
+  pDest->numLocalPaletteEntries = pSrc->numLocalPaletteEntries;
+  // copy transIndex if necessary (field added with V0.2.0; avoid binary incompatibility)
+  if(pSrc->attrFlags & (CGIF_FRAME_ATTR_HAS_ALPHA | CGIF_FRAME_ATTR_HAS_SET_TRANS)) {
+    pDest->transIndex = pSrc->transIndex;
+  }
+}
+
 /* queue a new GIF frame */
 int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   CGIF_Frame* pNewFrame;
+  int         hasAlpha, hasSetTransp;
   int         i;
   cgif_result r;
 
   // check for previous errors
   if(pGIF->curResult != CGIF_OK && pGIF->curResult != CGIF_PENDING) {
+    return pGIF->curResult;
+  }
+  hasAlpha     = ((pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY) || (pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_ALPHA)) ? 1 : 0; // alpha channel is present
+  hasSetTransp = (pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) ? 1 : 0;  // user provided transparency setting (identical areas marked by user)
+  // check for invalid configs:
+  // cannot set alpha channel and user-provided transparency at the same time.
+  if(hasAlpha && hasSetTransp) {
+    pGIF->curResult = CGIF_ERROR;
+    return pGIF->curResult;
+  }
+  // cannot set global and local alpha channel at the same time
+  if((pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY) && (pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_ALPHA)) {
+    pGIF->curResult = CGIF_ERROR;
     return pGIF->curResult;
   }
   // search for free slot in frame queue
@@ -357,8 +396,8 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   }
   // create new Frame struct + make a deep copy of pConfig.
   pNewFrame = malloc(sizeof(CGIF_Frame));
-  memcpy(&(pNewFrame->config), pConfig, sizeof(CGIF_FrameConfig));
-  pNewFrame->config.pImageData     = malloc(MULU16(pGIF->config.width, pGIF->config.height));
+  copyFrameConfig(&(pNewFrame->config), pConfig);
+  pNewFrame->config.pImageData = malloc(MULU16(pGIF->config.width, pGIF->config.height));
   memcpy(pNewFrame->config.pImageData, pConfig->pImageData, MULU16(pGIF->config.width, pGIF->config.height));
   // make a deep copy of the local color table, if required.
   if(pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) {
@@ -376,6 +415,18 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
       pGIF->aFrames[i - 1]->config.genFlags &= ~(CGIF_FRAME_GEN_USE_TRANSPARENCY | CGIF_FRAME_GEN_USE_DIFF_WINDOW);
       pGIF->aFrames[i - 1]->disposalMethod   = DISPOSAL_METHOD_BACKGROUND; // restore to background color
     }
+  }
+  // set per-frame alpha channel (we need to adapt the disposal method of the frame before)
+  if(pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_ALPHA) {
+    pGIF->aFrames[i]->transIndex = pConfig->transIndex;
+    if(pGIF->aFrames[i - 1] != NULL) {
+      pGIF->aFrames[i - 1]->config.genFlags &= ~(CGIF_FRAME_GEN_USE_DIFF_WINDOW); // width/height optim not possible for frame before
+      pGIF->aFrames[i - 1]->disposalMethod   = DISPOSAL_METHOD_BACKGROUND; // restore to background color
+    }
+  }
+  // user provided transparency setting
+  if(hasSetTransp) {
+    pGIF->aFrames[i]->transIndex = pConfig->transIndex;
   }
   pGIF->curResult = CGIF_OK;
   return pGIF->curResult;
