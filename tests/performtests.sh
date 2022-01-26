@@ -36,8 +36,7 @@ do
     printf "${GREEN}OK${NC}\n"
   fi
 done
-rm -f cgif.o
-rm -f cgif_raw.o
+rm -f cgif.o cgif_raw.o
 #
 # check MD5 hashes
 md5sum -c --quiet tests.md5

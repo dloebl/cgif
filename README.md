@@ -53,7 +53,7 @@ $ ./cgif_example
 ```
 
 ## Validating the encoder
-In the folder ```tests```, we provide several testing routines that you can be run via the script ```tests/performtests.sh```. To perform the tests you need to install the programs [ImageMagick](https://github.com/ImageMagick/ImageMagick), [gifsicle](https://github.com/kohler/gifsicle) and [tcc (tiny c compiler)](https://bellard.org/tcc/). 
+In the folder ```tests```, we provide several testing routines that you can run via the script ```tests/performtests.sh```. To perform the tests you need to install the programs [ImageMagick](https://github.com/ImageMagick/ImageMagick), [gifsicle](https://github.com/kohler/gifsicle) and [tcc (tiny c compiler)](https://bellard.org/tcc/). 
 With the provided tests you can validate that the encoder still generates correct GIF files after making changes on the encoder itself.
 
 ## Further explanations
