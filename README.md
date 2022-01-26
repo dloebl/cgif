@@ -13,10 +13,10 @@ A fast and lightweight GIF encoder that can create GIF animations and images. Su
 - source-code conforms to the C99 standard
 
 ## Examples
-To get started, we suggest that you have a look at our code examples. ```cgif_example_video.c``` is an example that creates a GIF animation. ```cgif_example.c``` is an example for a static GIF image.
+To get started, we suggest that you have a look at our code examples. ```examples/cgif_example_video.c``` is an example that creates a GIF animation. ```examples/cgif_example.c``` is an example for a static GIF image.
 
 ## Overview
-To get an overview of the API, we recommend having a look at our wiki (https://github.com/dloebl/cgif/wiki/General-API) where types and functions are described. The corresponding implementations can be found in ```cgif.c```. Here the most important types and functions:
+To get an overview of the API, we recommend having a look at our wiki (https://github.com/dloebl/cgif/wiki/General-API) where types and functions are described. The corresponding implementations can be found in ```src/cgif.c``` and ```src/cgif_raw.c```. Here the most important types and functions:
 
 ```C
 // These are the four struct types that contain all GIF data and parameters:
@@ -42,18 +42,18 @@ CGIF_FRAME_ATTR_HAS_SET_TRANS      // transparency setting provided by user (tra
 CGIF_FRAME_GEN_USE_TRANSPARENCY    // use transparency optimization (size optimization)
 CGIF_FRAME_GEN_USE_DIFF_WINDOW     // do encoding just for the sub-window that changed (size optimization)
 ```
-If you didn't understand the point of ```attrFlags``` and ```genFlags``` and the flags, please don't worry. The example files ```cgif_example.c``` and ```cgif_example_video.c``` are all you need to get started and the used default settings for ```attrFlags``` and ```genFlags``` cover most cases quite well.
+If you didn't understand the point of ```attrFlags``` and ```genFlags``` and the flags, please don't worry. The example files ```examples/cgif_example.c``` and ```examples/cgif_example_video.c``` are all you need to get started and the used default settings for ```attrFlags``` and ```genFlags``` cover most cases quite well.
 
 ## Compiling the example
 An example can be compiled and tested simply by:
 ```
-$ c99 -o cgif_example cgif_example_video.c cgif.c
+$ c99 -o cgif_example -Iinc examples/cgif_example_video.c src/cgif.c src/cgif_raw.c
 $ ./cgif_example
 
 ```
 
 ## Validating the encoder
-In the folder ```tests```, we provide several testing routines that you can be run via the script ```performtests.sh```. To perform the tests you need to install the programs [ImageMagick](https://github.com/ImageMagick/ImageMagick), [gifsicle](https://github.com/kohler/gifsicle) and [tcc (tiny c compiler)](https://bellard.org/tcc/). 
+In the folder ```tests```, we provide several testing routines that you can run via the script ```tests/performtests.sh```. To perform the tests you need to install the programs [ImageMagick](https://github.com/ImageMagick/ImageMagick), [gifsicle](https://github.com/kohler/gifsicle) and [tcc (tiny c compiler)](https://bellard.org/tcc/). 
 With the provided tests you can validate that the encoder still generates correct GIF files after making changes on the encoder itself.
 
 ## Further explanations
