@@ -452,14 +452,15 @@ int cgif_close(CGIF* pGIF) {
       }
     }
   }
+
+  // cleanup
+CGIF_CLOSE_Cleanup:
   r = cgif_raw_close(pGIF->pGIFRaw); // close raw GIF stream
   // check for errors
   if(r != CGIF_OK) {
     pGIF->curResult = r;
   }
 
-  // cleanup
-CGIF_CLOSE_Cleanup:
   if(pGIF->pFile) {
     r = fclose(pGIF->pFile); // we are done at this point => close the file
     if(r) {
