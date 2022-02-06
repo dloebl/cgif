@@ -22,7 +22,9 @@ jobs:
         run: brew install meson gifsicle
       - name: Dependencies (windows)
         if: contains(matrix.os, 'windows')
-        run: choco install gifsicle
+        run: |
+          choco install gifsicle
+          python -m pip install pip==21.3.1
       - name: Build and test (windows)
         if: contains(matrix.os, 'windows')
         uses: BSFishy/meson-build@v1.0.3
