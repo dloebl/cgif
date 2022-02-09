@@ -15,6 +15,7 @@ b702bac8f8ded19ec1f58c1f80ee9208  local_transp.gif
 # too large for CI: dd8cb01f5b02c16cc346b51d1faadc63  max_size.gif
 30ab701c8e56bc8b09c824305002de5a  min_color_table_test.gif
 f2bfeb47a7ecc834ae21140f02c60297  min_size.gif
+bcf6674e99f31e67da5bc17ad93cb7a7  more_than_256_colors.gif
 c6a8e6f6d6d0c969cb300ea7eb18391d  noise256.gif
 7de24bdbff1dec81aab1840bcf69b19f  noise6.gif
 3337de21095a6b19effb40c518af96e5  one_full_block.gif
