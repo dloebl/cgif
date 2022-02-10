@@ -9,7 +9,7 @@
 #define HEIGHT 255 
 
 /* This code is an example of how a GIF with frames including more than 256 colors can be created by reusing colors from a previous frame.
-   The general restriction of GIF that only 256 new colors can be intruduced in one frame remains of course */
+   The general restriction of GIF that only 256 new colors can be introduced in one frame remains of course */
 int main(void) {
   CGIF*          pGIF;
   CGIF_Config     gConfig;
