@@ -18,6 +18,7 @@ tests = [
   'max_color_table_test',
   'min_color_table_test',
   'min_size',
+  'more_than_256_colors',
   'noise256',
   'noise6',
   'one_full_block',
