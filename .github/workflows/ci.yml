@@ -14,33 +14,22 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
+      - name: Dependencies (shared)
+        run: pip install meson ninja
       - name: Dependencies (ubuntu)
         if: contains(matrix.os, 'ubuntu')
-        run: sudo apt install meson gifsicle valgrind
+        run: sudo apt update && sudo apt install -y gifsicle valgrind
       - name: Dependencies (macos)
         if: contains(matrix.os, 'macos')
-        run: brew install meson gifsicle
+        run: brew install gifsicle
       - name: Dependencies (windows)
         if: contains(matrix.os, 'windows')
-        run: |
-          choco install gifsicle
-          python -m pip install pip==21.3.1
-      - name: Build and test (windows)
-        if: contains(matrix.os, 'windows')
-        uses: BSFishy/meson-build@v1.0.3
-        with:
-          action: test
-          meson-version: "0.59.0"
-          ninja-version: "1.10.0.post3"
-      - name: Build and test (ubuntu & macos)
-        if: ${{ !contains(matrix.os, 'windows') }}
-        run: meson setup build && meson test -C build
-      - name: Check MD5 hashes
-        if: contains(matrix.os, 'ubuntu')
-        working-directory: build
-        run: md5sum -c ../tests/tests.md5
-        shell: bash
-      - name: Verify test output
+        run: choco install gifsicle
+      - name: Build
+        run: meson setup build && meson compile -C build
+      - name: Test
+        run: meson test -C build
+      - name: Verify GIF test output (gifsicle)
         run: for f in build/*.gif; do gifsicle --no-ignore-errors --info $f || exit 1; done
         shell: bash
       - name: Valgrind
