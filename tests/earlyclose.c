@@ -20,7 +20,6 @@ int main(void) {
   CGIF*          pGIF;
   CGIF_Config     gConfig;
   CGIF_FrameConfig   fConfig;
-  uint8_t*      pImageData;
   uint8_t       aPalette[] = {
     0x00, 0x00, 0x00, // black
     0xFF, 0xFF, 0xFF, // white

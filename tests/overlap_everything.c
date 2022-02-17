@@ -21,7 +21,6 @@ int main(void) {
   };
   uint8_t numColors = 2;   // number of colors in aPalette
   cgif_result r;
-  int numFrames = 2;      // number of frames in the video
   //
   // Create new GIF
   //

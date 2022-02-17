@@ -37,7 +37,6 @@ int main(void) {
   };
   cgif_result r;
   uint8_t numColors = 2;   // number of colors in aPalette
-  int numFrames     = 2;      // number of frames in the video
   //
   // create new GIF
   initGIFConfig(&gConfig, aPalette, numColors, CGIF_ATTR_IS_ANIMATED, WIDTH, HEIGHT);
