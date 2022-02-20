@@ -9,6 +9,7 @@ tests = [
   'animated_stripe_pattern_2',
   'earlyclose',
   'eindex',
+  'eindex_anim',
   'ewrite',
   'global_plus_local_table',
   'global_plus_local_table_with_optim',
