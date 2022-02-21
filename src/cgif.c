@@ -384,6 +384,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   if(i == SIZE_FRAME_QUEUE) {
     r = flushFrame(pGIF, pGIF->aFrames[1], pGIF->aFrames[0]);
     freeFrame(pGIF->aFrames[0]);
+    pGIF->aFrames[0] = NULL;
     // check for errors
     if(r != CGIF_OK) {
       pGIF->curResult = r;
