@@ -138,7 +138,12 @@ static int cmpPixel(const CGIF* pGIF, const CGIF_FrameConfig* pCur, const CGIF_F
   if((pBef->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) && iBef == pBef->transIndex) {
     return 1; // done: cannot compare
   }
-  // TBD add safety checks
+  // safety bounds check
+  const uint16_t sizeCTBef = (pBef->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pBef->numLocalPaletteEntries : pGIF->config.numGlobalPaletteEntries;
+  const uint16_t sizeCTCur = (pCur->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pCur->numLocalPaletteEntries : pGIF->config.numGlobalPaletteEntries;
+  if((iBef >= sizeCTBef) || (iCur >= sizeCTCur)) {
+    return 1; // error: out-of-bounds - cannot compare
+  }
   pBefCT = (pBef->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pBef->pLocalPalette : pGIF->config.pGlobalPalette; // local or global table used?
   pCurCT = (pCur->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pCur->pLocalPalette : pGIF->config.pGlobalPalette; // local or global table used?
   return memcmp(pBefCT + iBef * 3, pCurCT + iCur * 3, 3);
