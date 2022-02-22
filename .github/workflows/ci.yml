@@ -39,3 +39,5 @@ jobs:
       - name: Valgrind output
         if: contains(matrix.os, 'ubuntu')
         run: cat build/meson-logs/testlog-valgrind.txt
+      - name: Create fuzz seed corpus
+        run: meson configure build -Dfuzzer=true && meson compile -C build && meson test -C build

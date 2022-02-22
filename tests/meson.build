@@ -49,4 +49,25 @@ endforeach
 md5sumc = find_program('scripts/md5sum.py')
 # get the ordering right:
 # md5sum check on output GIFs should be run once all of the above tests are done.
-test('check md5sums', md5sumc, args : [join_paths(meson.source_root(), 'tests/tests.md5')], workdir : meson.build_root(), priority : -1, is_parallel : false)
+test('check test md5sums', md5sumc, args : [join_paths(meson.source_root(), 'tests/tests.md5')], workdir : meson.build_root(), priority : -1, is_parallel : false)
+
+if get_option('fuzzer')
+  zip = find_program('zip', required : false)
+  foreach t : tests
+    src = [t + '.c', '../fuzz/cgif_create_fuzz_seed.c']
+    cflags = ['-D', 'CGIF_OUTPATH="' + t + '.seed' + '"']
+    lflags = ['-Wl,--wrap=main']
+    exe = executable(t + '_genseed', sources : src, c_args : cflags, link_args: lflags)
+    test('generate ' + t + ' fuzz seed', exe, priority : -2)
+  endforeach
+  # get the ordering right:
+  # md5sum check on fuzz seed corpus should be run once all of the above tests are done.
+  test('check fuzz seed md5sums', md5sumc, args : [join_paths(meson.source_root(), 'fuzz/seeds.md5')], workdir : meson.build_root(), priority : -3, is_parallel : false)
+  if zip.found()
+    seeds = []
+    foreach t : tests
+      seeds += t + '.seed'
+    endforeach
+    test('create fuzz seed corpus zip archive', zip, args : ['cgif_fuzzer_seed_corpus.zip', seeds], priority : -4, is_parallel : false)
+  endif
+endif
