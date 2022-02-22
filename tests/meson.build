@@ -57,7 +57,7 @@ if get_option('fuzzer')
     src = [t + '.c', '../fuzz/cgif_create_fuzz_seed.c']
     cflags = ['-D', 'CGIF_OUTPATH="' + t + '.seed' + '"']
     lflags = ['-Wl,--wrap=main']
-    exe = executable(t + '_genseed', sources : src, c_args : cflags, link_args: lflags)
+    exe = executable(t + '_genseed', sources : src, c_args : cflags, link_args: lflags, include_directories : ['../inc'])
     test('generate ' + t + ' fuzz seed', exe, priority : -2)
   endforeach
   # get the ordering right:
