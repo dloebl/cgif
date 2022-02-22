@@ -113,9 +113,3 @@ int cgif_close(CGIF* pGIF) {
   free(pGIF);
   return result;
 }
-
-int __real_main(void);
-int __wrap_main(void) {
-  __real_main();
-  return 0;
-}
