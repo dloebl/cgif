@@ -12,6 +12,10 @@ int main(int argn, char** pArgs) {
     return 1;
   }
   pFile = fopen(pArgs[1], "rb");
+  if(pFile == NULL) {
+    fprintf(stderr, "failed to open file\n");
+    return 2;
+  }
   // get size of input
   fseek(pFile, 0, SEEK_END);
   const long size = ftell(pFile);
@@ -20,14 +24,14 @@ int main(int argn, char** pArgs) {
   uint8_t* pData = malloc(size);
   if(pData == NULL) {
     fclose(pData);
-    return 2;
+    return 3;
   }
   size_t r = fread(pData, size, 1, pFile);
   fclose(pFile);
   if(r != 1) {
     fprintf(stderr, "read failed\n");
     free(pData);
-    return 3;
+    return 4;
   }
   // test input
   LLVMFuzzerTestOneInput(pData, size);
