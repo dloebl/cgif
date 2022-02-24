@@ -30,7 +30,7 @@ typedef struct {
   uint16_t       width;        // effective width of each frame in the GIF
   uint16_t       height;       // effective height of each frame in the GIF
   uint16_t       sizeGCT;      // size of the global color table (GCT)
-  uint16_t       numLoops;     // number of repetitons of an animated GIF (set to INFINITE_LOOP for infinite loop)
+  uint16_t       numLoops;     // number of repetitons of an animated GIF (set to INFINITE_LOOP resp. 0 for infinite loop, use CGIF_ATTR_NO_LOOP if you don't want any repetition)
 } CGIFRaw_Config;
 
 // CGIFRaw_FrameConfig type
