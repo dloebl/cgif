@@ -1,48 +1,88 @@
+# some unit tests are expected to fail when we generate the fuzzer seed corpus.
+# these tests might fail, as the cgif API wrapper (fuzz/cgif_create_fuzz_seed.c) does not behave exactly as cgif itself:
+# seed_should_fail should be set to true if that's the case.
 tests = [
-  'all_optim',
-  'alpha',
-  'animated_color_gradient',
-  'animated_single_pixel',
-  'animated_snake',
-  'animated_stripes_horizontal',
-  'animated_stripe_pattern',
-  'animated_stripe_pattern_2',
-  'earlyclose',
-  'eindex',
-  'eindex_anim',
-  'ewrite',
-  'global_plus_local_table',
-  'global_plus_local_table_with_optim',
-  'has_transparency',
-  'has_transparency_2',
-  'local_transp',
-  'max_color_table_test',
-  'min_color_table_test',
-  'min_size',
-  'more_than_256_colors',
-  'noise256',
-  'noise6',
-  'one_full_block',
-  'only_local_table',
-  'overlap_everything',
-  'overlap_everything_only_trans',
-  'overlap_some_rows',
-  'trans_inc_initdict',
-  'user_trans',
-  'write_fn',
+  { 'name' : 'all_optim',                          'seed_should_fail' : false},
+  { 'name' : 'alpha',                              'seed_should_fail' : false},
+  { 'name' : 'animated_color_gradient',            'seed_should_fail' : false},
+  { 'name' : 'animated_single_pixel',              'seed_should_fail' : false},
+  { 'name' : 'animated_snake',                     'seed_should_fail' : false},
+  { 'name' : 'animated_stripes_horizontal',        'seed_should_fail' : false},
+  { 'name' : 'animated_stripe_pattern',            'seed_should_fail' : false},
+  { 'name' : 'animated_stripe_pattern_2',          'seed_should_fail' : false},
+  { 'name' : 'earlyclose',                         'seed_should_fail' : true },
+  { 'name' : 'eindex',                             'seed_should_fail' : true },
+  { 'name' : 'eindex_anim',                        'seed_should_fail' : true },
+  { 'name' : 'ewrite',                             'seed_should_fail' : true },
+  { 'name' : 'global_plus_local_table',            'seed_should_fail' : false},
+  { 'name' : 'global_plus_local_table_with_optim', 'seed_should_fail' : false},
+  { 'name' : 'has_transparency',                   'seed_should_fail' : false},
+  { 'name' : 'has_transparency_2',                 'seed_should_fail' : false},
+  { 'name' : 'local_transp',                       'seed_should_fail' : false},
+  { 'name' : 'max_color_table_test',               'seed_should_fail' : false},
+  { 'name' : 'min_color_table_test',               'seed_should_fail' : false},
+  { 'name' : 'min_size',                           'seed_should_fail' : false},
+  { 'name' : 'more_than_256_colors',               'seed_should_fail' : false},
+  { 'name' : 'noise256',                           'seed_should_fail' : false},
+  { 'name' : 'noise6',                             'seed_should_fail' : false},
+  { 'name' : 'one_full_block',                     'seed_should_fail' : false},
+  { 'name' : 'only_local_table',                   'seed_should_fail' : false},
+  { 'name' : 'overlap_everything',                 'seed_should_fail' : false},
+  { 'name' : 'overlap_everything_only_trans',      'seed_should_fail' : false},
+  { 'name' : 'overlap_some_rows',                  'seed_should_fail' : false},
+  { 'name' : 'trans_inc_initdict',                 'seed_should_fail' : false},
+  { 'name' : 'user_trans',                         'seed_should_fail' : false},
+  { 'name' : 'write_fn',                           'seed_should_fail' : false},
 ]
 
 foreach t : tests
+  name = t.get('name')
   test_exe = executable(
-    'test_' + t,
-    t + '.c',
+    'test_' + name,
+    name + '.c',
     dependencies : [libcgif_dep],
     include_directories : ['../inc/'],
   )
-  test(t, test_exe, priority : 0)
+  test(name, test_exe, priority : 0)
 endforeach
 
 md5sumc = find_program('scripts/md5sum.py')
 # get the ordering right:
 # md5sum check on output GIFs should be run once all of the above tests are done.
-test('check md5sums', md5sumc, args : [join_paths(meson.source_root(), 'tests/tests.md5')], workdir : meson.build_root(), priority : -1, is_parallel : false)
+test('check test md5sums', md5sumc, args : [join_paths(meson.source_root(), 'tests/tests.md5')], workdir : meson.build_root(), priority : -1, is_parallel : false)
+
+if get_option('fuzzer')
+  zip = find_program('zip', required : false)
+  foreach t : tests
+    name = t.get('name')
+    src = [name + '.c', '../fuzz/cgif_create_fuzz_seed.c']
+    cflags = ['-D', 'CGIF_OUTPATH="' + name + '.seed' + '"']
+    exe = executable(name + '_genseed', sources : src, c_args : cflags, include_directories : ['../inc'])
+    test('generate ' + name + '.seed', exe, priority : -2, should_fail : t.get('seed_should_fail'))
+  endforeach
+  # get the ordering right:
+  # md5sum check on fuzz seed corpus should be run once all of the above tests are done.
+  test('check fuzz seed md5sums', md5sumc, args : [join_paths(meson.source_root(), 'fuzz/seeds.md5')], workdir : meson.build_root(), priority : -3, is_parallel : false)
+
+  src = ['../fuzz/cgif_fuzzer_standalone.c', '../fuzz/cgif_fuzzer.c']
+  exe = executable(
+    'cgif_fuzzer_standalone',
+    sources : src,
+    dependencies : [libcgif_dep],
+    include_directories : ['../inc'],
+  )
+  # test seed corpus with standalone fuzzer
+  foreach t : tests
+    seedpath = t.get('name') + '.seed'
+    test('run cgif_fuzzer_standalone ' + seedpath, exe, args : seedpath, priority : -4)
+  endforeach
+
+  # generate seed corpus zip archive, if possible
+  if zip.found()
+    seeds = []
+    foreach t : tests
+      seeds += t.get('name') + '.seed'
+    endforeach
+    test('create fuzz seed corpus zip archive', zip, args : ['cgif_fuzzer_seed_corpus.zip', seeds], priority : -4)
+  endif
+endif
