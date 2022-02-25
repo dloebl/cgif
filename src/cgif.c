@@ -94,7 +94,7 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
   memset(pGIF, 0, sizeof(CGIF));
   pGIF->pFile = pFile;
   memcpy(&(pGIF->config), pConfig, sizeof(CGIF_Config));
-  // make a deep copy of GCT, if required.
+  // make a deep copy of global color tabele (GCT), if required.
   if((pConfig->attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
     pGIF->config.pGlobalPalette = malloc(pConfig->numGlobalPaletteEntries * 3);
     memcpy(pGIF->config.pGlobalPalette, pConfig->pGlobalPalette, pConfig->numGlobalPaletteEntries * 3);
@@ -138,7 +138,12 @@ static int cmpPixel(const CGIF* pGIF, const CGIF_FrameConfig* pCur, const CGIF_F
   if((pBef->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) && iBef == pBef->transIndex) {
     return 1; // done: cannot compare
   }
-  // TBD add safety checks
+  // safety bounds check
+  const uint16_t sizeCTBef = (pBef->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pBef->numLocalPaletteEntries : pGIF->config.numGlobalPaletteEntries;
+  const uint16_t sizeCTCur = (pCur->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pCur->numLocalPaletteEntries : pGIF->config.numGlobalPaletteEntries;
+  if((iBef >= sizeCTBef) || (iCur >= sizeCTCur)) {
+    return 1; // error: out-of-bounds - cannot compare
+  }
   pBefCT = (pBef->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pBef->pLocalPalette : pGIF->config.pGlobalPalette; // local or global table used?
   pCurCT = (pCur->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? pCur->pLocalPalette : pGIF->config.pGlobalPalette; // local or global table used?
   return memcmp(pBefCT + iBef * 3, pCurCT + iCur * 3, 3);
@@ -250,11 +255,16 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   imageWidth     = pGIF->config.width;
   imageHeight    = pGIF->config.height;
   isFirstFrame   = (pBef == NULL) ? 1 : 0;
-  useLCT         = (pCur->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
+  useLCT         = (pCur->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0; // LCT stands for "local color table"
   hasAlpha       = ((pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY) || (pCur->config.attrFlags & CGIF_FRAME_ATTR_HAS_ALPHA)) ? 1 : 0;
   hasSetTransp   = (pCur->config.attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) ? 1 : 0;
   disposalMethod = pCur->disposalMethod;
   transIndex     = pCur->transIndex;
+  // sanity check:
+  // at least one valid CT needed (global or local)
+  if(!useLCT && (pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE)) {
+    return CGIF_ERROR; // invalid config
+  }
   // deactivate impossible size optimizations 
   //  => in case alpha channel is used
   // CGIF_FRAME_GEN_USE_TRANSPARENCY and CGIF_FRAME_GEN_USE_DIFF_WINDOW are not possible
