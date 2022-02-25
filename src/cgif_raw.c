@@ -471,7 +471,7 @@ cgif_result cgif_raw_addframe(CGIFRaw* pGIF, const CGIFRaw_FrameConfig* pConfig)
   uint8_t    aGraphicExt[SIZE_GRAPHIC_EXT];
   LZWResult  encResult;
   int        r, rWrite;
-  const int  useLCT = pConfig->sizeLCT;
+  const int  useLCT = pConfig->sizeLCT; // LCT stands for "local color table"
   uint16_t   numEffColors; // number of effective colors
   uint16_t   initDictLen;
   uint8_t    pow2LCT, initCodeLen;

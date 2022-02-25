@@ -94,7 +94,7 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
   memset(pGIF, 0, sizeof(CGIF));
   pGIF->pFile = pFile;
   memcpy(&(pGIF->config), pConfig, sizeof(CGIF_Config));
-  // make a deep copy of GCT, if required.
+  // make a deep copy of global color tabele (GCT), if required.
   if((pConfig->attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
     pGIF->config.pGlobalPalette = malloc(pConfig->numGlobalPaletteEntries * 3);
     memcpy(pGIF->config.pGlobalPalette, pConfig->pGlobalPalette, pConfig->numGlobalPaletteEntries * 3);
@@ -255,7 +255,7 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   imageWidth     = pGIF->config.width;
   imageHeight    = pGIF->config.height;
   isFirstFrame   = (pBef == NULL) ? 1 : 0;
-  useLCT         = (pCur->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0;
+  useLCT         = (pCur->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) ? 1 : 0; // LCT stands for "local color table"
   hasAlpha       = ((pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY) || (pCur->config.attrFlags & CGIF_FRAME_ATTR_HAS_ALPHA)) ? 1 : 0;
   hasSetTransp   = (pCur->config.attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) ? 1 : 0;
   disposalMethod = pCur->disposalMethod;
