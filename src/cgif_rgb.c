@@ -279,7 +279,7 @@ static void get_quantized_dithered_image(uint8_t* pImageData, float* pImageDataR
       // TBD add the transparency trick
       pImageData[i] = get_leave_node_index(root, &pImageDataRGBfloat[fmtChan * i]);  // use decision tree to get indices for new colors
       for(k = 0; k<3; ++k) {
-        err = pImageDataRGBfloat[3 * i + k] - pPalette256[3 * pImageData[i] + k]; // compute color error
+        err = pImageDataRGBfloat[fmtChan * i + k] - pPalette256[3 * pImageData[i] + k]; // compute color error
         //diffuse error: ignore that color can get ouside 0-255 (get_leave_node_index just gets the closest color)
         if(i % width < width-1){
           pImageDataRGBfloat[fmtChan * (i+1) + k] += factor * (7.00/16.00*err);
@@ -381,7 +381,7 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
     transIndex = colMax;
-    get_quantized_dithered_image(pImageData, pImageDataRGBfloat, pPalette256, root, numPixel, width, false, transIndex, fmtChan, pBef, befFmtChan, hasAlpha); // TBD skip dithering for now
+    get_quantized_dithered_image(pImageData, pImageDataRGBfloat, pPalette256, root, numPixel, width, true, transIndex, fmtChan, pBef, befFmtChan, hasAlpha); // TBD skip dithering for now
     free(pImageDataRGBfloat);
     free_decision_tree(root);
     free(pFrequDense);
