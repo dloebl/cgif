@@ -424,7 +424,10 @@ CGIFRaw* cgif_raw_newgif(const CGIFRaw_Config* pConfig) {
   uint8_t  aHeader[SIZE_MAIN_HEADER];
   CGIFRaw* pGIF;
   int      rWrite;
-
+  // check for invalid GCT size
+  if(pConfig->sizeGCT > 256) {
+    return NULL; // invalid GCT size
+  }
   pGIF = malloc(sizeof(CGIFRaw));
   if(!pGIF) {
     return NULL;
@@ -469,13 +472,18 @@ cgif_result cgif_raw_addframe(CGIFRaw* pGIF, const CGIFRaw_FrameConfig* pConfig)
   uint8_t    aGraphicExt[SIZE_GRAPHIC_EXT];
   LZWResult  encResult;
   int        r, rWrite;
-  const int  useLCT = pConfig->sizeLCT;
+  const int  useLCT = pConfig->sizeLCT; // LCT stands for "local color table"
   uint16_t   numEffColors; // number of effective colors
   uint16_t   initDictLen;
   uint8_t    pow2LCT, initCodeLen;
 
   if(pGIF->curResult != CGIF_OK && pGIF->curResult != CGIF_PENDING) {
     return pGIF->curResult; // return previous error
+  }
+  // check for invalid LCT size
+  if(pConfig->sizeLCT > 256) {
+    pGIF->curResult = CGIF_ERROR; // invalid LCT size
+    return pGIF->curResult;
   }
 
   rWrite = 0;
