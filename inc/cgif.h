@@ -12,6 +12,7 @@ extern "C" {
 #define CGIF_ATTR_IS_ANIMATED            (1uL << 1)       // make an animated GIF (default is non-animated GIF)
 #define CGIF_ATTR_NO_GLOBAL_TABLE        (1uL << 2)       // disable global color table (global color table is default)
 #define CGIF_ATTR_HAS_TRANSPARENCY       (1uL << 3)       // first entry in color table contains transparency (alpha channel)
+#define CGIF_ATTR_NO_LOOP                (1uL << 4)       // don't loop a GIF animation: only play it one time.
 #define CGIF_FRAME_ATTR_USE_LOCAL_TABLE  (1uL << 0)       // use a local color table for a frame (local color table is not used by default)
 #define CGIF_FRAME_ATTR_HAS_ALPHA        (1uL << 1)       // alpha channel index provided by user (transIndex field)
 #define CGIF_FRAME_ATTR_HAS_SET_TRANS    (1uL << 2)       // transparency setting provided by user (transIndex field)

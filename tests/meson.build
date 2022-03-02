@@ -22,6 +22,7 @@ tests = [
   'more_than_256_colors',
   'noise256',
   'noise6',
+  'noloop',
   'one_full_block',
   'only_local_table',
   'overlap_everything',

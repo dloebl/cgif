@@ -449,7 +449,8 @@ CGIFRaw* cgif_raw_newgif(const CGIFRaw_Config* pConfig) {
     rWrite |= writeDummyBytes(pConfig->pWriteFn, pConfig->pContext, numBytesLeft);
   }
   // GIF should be animated? => init & write app extension header ("NETSCAPE2.0")
-  if(pConfig->attrFlags & CGIF_RAW_ATTR_IS_ANIMATED) {
+  // No loop? Don't write NETSCAPE extension.
+  if((pConfig->attrFlags & CGIF_RAW_ATTR_IS_ANIMATED) && !(pConfig->attrFlags & CGIF_RAW_ATTR_NO_LOOP)) {
     initAppExtBlock(aAppExt, pConfig->numLoops);
     rWrite |= pConfig->pWriteFn(pConfig->pContext, aAppExt, SIZE_APP_EXT);
   }

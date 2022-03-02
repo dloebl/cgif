@@ -104,6 +104,7 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
   rawConfig.sizeGCT   = (pConfig->attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) ? 0 : pConfig->numGlobalPaletteEntries;
   // translate CGIF_ATTR_* to CGIF_RAW_ATTR_* flags
   rawConfig.attrFlags = (pConfig->attrFlags & CGIF_ATTR_IS_ANIMATED) ? CGIF_RAW_ATTR_IS_ANIMATED : 0;
+  rawConfig.attrFlags |= (pConfig->attrFlags & CGIF_ATTR_NO_LOOP) ? CGIF_RAW_ATTR_NO_LOOP : 0;
   rawConfig.width     = pConfig->width;
   rawConfig.height    = pConfig->height;
   rawConfig.numLoops  = pConfig->numLoops;

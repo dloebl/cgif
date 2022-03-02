@@ -15,6 +15,7 @@ extern "C" {
 
 // flags to set the GIF attributes
 #define CGIF_RAW_ATTR_IS_ANIMATED     (1uL << 0) // make an animated GIF (default is non-animated GIF)
+#define CGIF_RAW_ATTR_NO_LOOP         (1uL << 1) // don't loop a GIF animation: only play it one time.
 
 // flags to set the Frame attributes
 #define CGIF_RAW_FRAME_ATTR_HAS_TRANS (1uL << 0) // provided transIndex should be set
@@ -29,7 +30,7 @@ typedef struct {
   uint16_t       width;        // effective width of each frame in the GIF
   uint16_t       height;       // effective height of each frame in the GIF
   uint16_t       sizeGCT;      // size of the global color table (GCT)
-  uint16_t       numLoops;     // number of repetitons of an animated GIF (set to INFINITE_LOOP for infinite loop)
+  uint16_t       numLoops;     // number of repetitons of an animated GIF (set to INFINITE_LOOP resp. 0 for infinite loop, use CGIF_ATTR_NO_LOOP if you don't want any repetition)
 } CGIFRaw_Config;
 
 // CGIFRaw_FrameConfig type
