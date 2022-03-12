@@ -45,6 +45,34 @@ static uint64_t argmax64(float* arry, uint64_t n){
   return imax;
 }
 
+/* get the next prime number above the next power of two, input must be within [512, 2*256^3]*/
+static int getNextPrimePower2(int N){
+  if(N <= 512) {return 521;}
+  else if(N <= 1024) {return 1031;}
+  else if (N <= 2048) {return 2053;}
+  else if (N <= 4096) {return 4099;}
+  else if (N <= 8192) {return 8209;}
+  else if (N <= 16384) {return 16411;}
+  else if (N <= 32768) {return 32771;}
+  else if (N <= 65536) {return 65537;}
+  else if (N <= 131072) {return 131101;}
+  else if (N <= 262144) {return 262147;}
+  else if (N <= 524288) {return 524309;}
+  else if (N <= 1048576) {return 1048583;}
+  else if (N <= 2097152) {return 2097169;}
+  else if (N <= 4194304) {return 4194319;}
+  else if (N <= 8388608) {return 8388617;}
+  else {return 16777259;}
+}
+
+static float min(float a, float b){
+  return (a <= b) ? a : b;
+}
+
+static float max(float a, float b){
+  return (a >= b) ? a : b;
+}
+
 static Pixel getPixelVal(const uint8_t* pData, cgif_chan_fmt fmtChan) {
   Pixel result;
 
@@ -66,23 +94,19 @@ static Pixel getPixelVal(const uint8_t* pData, cgif_chan_fmt fmtChan) {
 /* get a hash from rgb color values (use open addressing, if entry does not exist, next free spot is returned) */
 static int32_t col_hash(const uint8_t* rgb, const uint8_t* hashTable, const uint8_t* indexUsed, const uint32_t tableSize, cgif_chan_fmt fmtChan) {
   uint32_t h;
-  const int p = 700001; // prime number for hashing (TBD: number of colors resp. numner of colors < p < 256^3 for uniform distribution)
   const Pixel pix = getPixelVal(rgb, fmtChan);
 
   // has alpha channel?
   if(pix.a == 0) {
     return -1;
   }
-  h = ((pix.r * 256 * 256 + pix.g * 256 + pix.b) % p) % tableSize;
+  h = (pix.r * 256 * 256 + pix.g * 256 + pix.b) % tableSize;
   while(1) {
-    if(indexUsed[h] == 0) {
-      return h;
-    }
-    if(indexUsed[h] && memcmp(rgb, &hashTable[3 * h], 3) == 0) {
+    if(indexUsed[h] == 0 || memcmp(rgb, &hashTable[3 * h], 3) == 0) {
       return h;
     } else {
       ++h; // go on searching for a free spot
-      h = h % tableSize; //start over
+      h = h % tableSize; // start from beginning if there is no free stop at the end
     }
   }
   return h;
@@ -238,7 +262,8 @@ static void free_decision_tree(treeNode* root){
 
 /* get image with max 256 color indices using Floyd-Steinberg dithering */
 static void get_quantized_dithered_image(uint8_t* pImageData, float* pImageDataRGBfloat, uint8_t* pPalette256, treeNode* root, uint32_t numPixel, uint32_t width, bool dithering, uint8_t transIndex, cgif_chan_fmt fmtChan, uint8_t* pBef, cgif_chan_fmt befFmtChan, int hasAlpha) {
-  // pImageData, pImageDataRGBfloat: image with (max 256) color indices (length: numPixel), image with RGB colors (length: 3*numPixel)
+  // pImageData: image with (max 256) color indices (length: numPixel)
+  // pImageDataRGBfloat: image with RGB colors (length: 3*numPixel) must be signed to avoid overflow due to error passing, float only needed because of 0.9 factor
   // pPalette256: quantized color palette (indexed by node->colIdx), only used if dithering is on
   // root: root node of the decision tree for color quantization
   // numPixel, width: size of the image
@@ -277,22 +302,59 @@ static void get_quantized_dithered_image(uint8_t* pImageData, float* pImageDataR
         }
       }
       // TBD add the transparency trick
+
+      // restrict color + error to 0-255 interval
+      for(k = 0; k<3; ++k) {
+        pImageDataRGBfloat[fmtChan * i + k] = max(0,min(pImageDataRGBfloat[fmtChan * i + k], 255)); // cut to 0-255 before
+      }
+
       pImageData[i] = get_leave_node_index(root, &pImageDataRGBfloat[fmtChan * i]);  // use decision tree to get indices for new colors
       for(k = 0; k<3; ++k) {
         err = pImageDataRGBfloat[fmtChan * i + k] - pPalette256[3 * pImageData[i] + k]; // compute color error
-        //diffuse error: ignore that color can get ouside 0-255 (get_leave_node_index just gets the closest color)
+        //diffuse error with Floyd-Steinberg dithering.
         if(i % width < width-1){
-          pImageDataRGBfloat[fmtChan * (i+1) + k] += factor * (7.00/16.00*err);
+          pImageDataRGBfloat[fmtChan * (i+1) + k] += factor * (7*err >> 4);
         }
         if(i < numPixel - width){
-          pImageDataRGBfloat[fmtChan * (i+width) + k] += factor * (5.00/16.00*err);
+          pImageDataRGBfloat[fmtChan * (i+width) + k] += factor * (5*err >> 4);
           if(i % width > 0){
-            pImageDataRGBfloat[fmtChan * (i+width-1) + k] += factor * (3.00/16.00*err);
+            pImageDataRGBfloat[fmtChan * (i+width-1) + k] += factor * (3*err >> 4);
           }
           if(i % width < width-1){
-            pImageDataRGBfloat[fmtChan * (i+width+1) + k] += factor * (1.00/16.00*err);
+            pImageDataRGBfloat[fmtChan * (i+width+1) + k] += factor * (1*err >> 4);
           }
         }
+        // Sierra dithering
+        /*if(i % width < width-1){
+          pImageDataRGBfloat[fmtChan * (i+1) + k] += factor * (5*err >> 5);
+          if(i % width < width-2){
+            pImageDataRGBfloat[fmtChan * (i+2) + k] += factor * (3*err >> 5);
+          }
+        }
+        if(i < numPixel - width){
+          pImageDataRGBfloat[fmtChan * (i+width) + k] += factor * (5*err >> 5);
+          if(i % width > 0){
+            pImageDataRGBfloat[fmtChan * (i+width-1) + k] += factor * (4*err >> 5);
+            if(i % width > 1){
+              pImageDataRGBfloat[fmtChan * (i+width-2) + k] += factor * (2*err >> 5);
+            }
+          }
+          if(i % width < width-1){
+            pImageDataRGBfloat[fmtChan * (i+width+1) + k] += factor * (4*err >> 5);
+            if(i % width < width-2){
+              pImageDataRGBfloat[fmtChan * (i+width+2) + k] += factor * (2*err >> 5);
+            }
+          }
+          if(i < numPixel - 2*width){
+            pImageDataRGBfloat[fmtChan * (i+2*width) + k] += factor * (3*err >> 5);
+            if(i % width > 0){
+              pImageDataRGBfloat[fmtChan * (i+2*width-1) + k] += factor * (2*err >> 5);
+            }
+            if(i % width < width-1){
+              pImageDataRGBfloat[fmtChan * (i+2*width+1) + k] += factor * (2*err >> 5);
+            }
+          }
+        }*/
       }
     }
   }
@@ -312,16 +374,18 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
   uint32_t i,j;
   int32_t  h;
   uint32_t  cnt       = 0;                                  // count the number of colors
-  uint32_t  tableSize = 512;                                // size of the hash table
+  uint32_t  tableSize = 262147;                             // initial size of the hash table
+  uint32_t tableSizeNew;                                    // size of hash-table when increasing its size
+  tableSize = getNextPrimePower2(tableSize);                // increase table size to next prime number
   int       hasAlpha = 0;
   uint8_t   transIndex;
   uint32_t* colIdx = malloc(sizeof(uint32_t)*tableSize);    // index of the color
   uint32_t* frequ = malloc(sizeof(uint32_t)*tableSize);     // frequency of colors (histogram)
   uint8_t* hashTable = malloc(3 * tableSize);               // stores RGB vales at position determined by hash
   uint8_t* indexUsed = malloc(tableSize);                   // which part of the hash table was already used
-  uint8_t* hashTable_new = malloc(3 * tableSize);           // for new hash table
-  uint8_t* indexUsed_new = malloc(tableSize);               // for new hash table
-  uint32_t* frequ_new = malloc(sizeof(uint32_t)*tableSize); // for new hash table
+  uint8_t* hashTable_new;                                   // for new hash table
+  uint8_t* indexUsed_new;                                   // for new hash table
+  uint32_t* frequ_new;                                      // for new hash table
   uint8_t* pPalette = malloc(3 * tableSize);                // color palette with all the colors (before color quantization)
   const uint8_t sizePixel = fmtChan;                        // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
   memset(pPalette, 0, 3 * tableSize);                       // unused part of color table is uninitialized otheriwse
@@ -335,7 +399,7 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
     if(indexUsed[h] == 0) {
       memcpy(&hashTable[3 * h],  &pImageDataRGB[sizePixel * i], 3); // add new color to hash table
       memcpy(&pPalette[3 * cnt], &pImageDataRGB[sizePixel * i], 3); // add new color to palette
-      indexUsed[h] = 1;    // mark hash tabel entry as used
+      indexUsed[h] = 1;    // mark hash table entry as used
       colIdx[h]    = cnt;  // assign index to color
       frequ[h]     = 1;    // the new color occured 1x by now
       ++cnt;               // one new color added
@@ -344,12 +408,13 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
     }
     // resize the hash table (if more than half-full)
     if(cnt > (tableSize >> 1)) {
-      pPalette      = realloc(pPalette, 3 * 2 * tableSize);
-      colIdx        = realloc(colIdx, sizeof(uint32_t) * 2 * tableSize);
-      hashTable_new = realloc(hashTable_new, 3 * 2 * tableSize);
-      indexUsed_new = realloc(indexUsed_new, 2 * tableSize);
-      frequ_new     = realloc(frequ_new, sizeof(uint32_t) * 2 * tableSize);
-      memset(indexUsed_new, 0, 2 * tableSize);
+      tableSizeNew  = getNextPrimePower2(tableSize); // increase table size to the next prime number above the next power of two
+      pPalette      = realloc(pPalette, 3 * tableSizeNew);
+      colIdx        = realloc(colIdx, sizeof(uint32_t) * tableSizeNew);
+      hashTable_new = malloc(3 * tableSizeNew);
+      indexUsed_new = malloc(tableSizeNew);
+      frequ_new     = malloc(sizeof(uint32_t) * tableSizeNew);
+      memset(indexUsed_new, 0, tableSizeNew);
       cnt = 0;
       for(j = 0; j < tableSize; ++j) { // TBD: wouldn't it be easier to loop over pPalette and also leave pPalette in place?, if indexUsed is also unnecessary then
         if(indexUsed[j] == 1){
@@ -362,13 +427,13 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
           ++cnt;
         }
       }
-      tableSize <<= 1; // double table size
-      hashTable = realloc(hashTable, 3 * tableSize);
-      indexUsed = realloc(indexUsed, tableSize);
-      frequ     = realloc(frequ, sizeof(uint32_t) * tableSize);
-      memcpy(hashTable, hashTable_new, 3 * tableSize);          // update hashTable with helper variable hashTable_new
-      memcpy(indexUsed, indexUsed_new, tableSize);              // update indexUsed with helper variable indexUsed_new
-      memcpy(frequ, frequ_new, tableSize * sizeof(uint32_t));
+      tableSize = tableSizeNew;
+      free(hashTable);            // free old hash table that is not used anymore
+      free(indexUsed);
+      free(frequ);
+      hashTable = hashTable_new;  // pass pointer to new hash table
+      indexUsed = indexUsed_new;
+      frequ = frequ_new;
     }
   }
 
@@ -405,11 +470,8 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
   free(colIdx);
   free(hashTable);
   free(indexUsed);
-  free(hashTable_new);
-  free(indexUsed_new);
   free(pPalette);
   free(frequ);
-  free(frequ_new);
   return cnt; // return number of colors found
 }
 
