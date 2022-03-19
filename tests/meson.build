@@ -28,6 +28,7 @@ tests = [
   'overlap_everything',
   'overlap_everything_only_trans',
   'overlap_some_rows',
+  'rgb_noise',
   'trans_inc_initdict',
   'user_trans',
   'write_fn',
