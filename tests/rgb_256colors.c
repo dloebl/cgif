@@ -5,16 +5,17 @@
 
 #include "cgif.h"
 
-#define WIDTH  1000
-#define HEIGHT 1000
+#define WIDTH  256
+#define HEIGHT 10
 
-/* create an image with colors following a 256digit system, save as GIF by using built-in color quantization in cgif_rgb_addframe */
+/* create an image with 256 different colors, save as GIF by using cgif_rgb_addframe
+   color quantization is done as it keeps index free for transparency in an animation (but it is not required by the GIF-format for exactly 256 colors) */
 int main(void) {
   CGIFrgb_Config config = {0};
   CGIFrgb*       pGIF;
   CGIFrgb_FrameConfig fconfig = {0};
 
-  config.path = "rgb_256digit.gif";
+  config.path = "rgb_256colors.gif";
   config.width = WIDTH;
   config.height = HEIGHT;
   pGIF = cgif_rgb_newgif(&config);
@@ -22,20 +23,11 @@ int main(void) {
     fputs("failed to create new GIF via cgif_rgb_newgif()\n", stderr);
     return 1;
   }
-  
-  int p = 524309; // set to initial size of the hash table + x
-  int imod;
+
   uint8_t* pImageDataRGB = malloc(WIDTH * HEIGHT * 3);
-  for(int i = 0; i < WIDTH * HEIGHT; ++i) {
-    if(i<100000){
-      imod = i;
-    } else {
-      imod = p;   // open addressing with linear probing gets inefficient here
-    }
-    // fill color according to a digital system
-    pImageDataRGB[3*i+2] = imod % 256;
-    pImageDataRGB[3*i+1] = (imod/256) % 256;
-    pImageDataRGB[3*i+0] = (imod/256/256) % 256;
+  memset(pImageDataRGB, 0, WIDTH * HEIGHT * 3); // initialize all rgb-values to [0,0,0]
+  for(int i=0; i<WIDTH * HEIGHT; i++){
+    pImageDataRGB[3*i] = i % WIDTH; // red color gradient
   }
   fconfig.pImageData = pImageDataRGB;
   fconfig.fmtChan    = CGIF_CHAN_FMT_RGB;
