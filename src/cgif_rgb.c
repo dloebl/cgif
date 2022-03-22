@@ -391,7 +391,8 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
   uint8_t* pPalette = malloc(3 * tableSize);                // color palette with all the colors (before color quantization)
   const uint8_t sizePixel = fmtChan;                        // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
   memset(pPalette, 0, 3 * tableSize);                       // unused part of color table is uninitialized otheriwse
-  memset(indexUsed, 0, tableSize);
+  memset(indexUsed, 0, tableSize);                          // initially no entry in hash-table is used
+
   for(i = 0; i < numPixel; ++i) {
     cntCollision = 0;
     h = col_hash(&pImageDataRGB[sizePixel * i], hashTable, indexUsed, tableSize, fmtChan, &cntCollision);
@@ -502,6 +503,7 @@ CGIFrgb* cgif_rgb_newgif(const CGIFrgb_Config* pConfig) {
 
 cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig) {
   uint8_t          aPalette[256 * 3];
+  memset(aPalette, 0, 256 * 3);       // rgb_to_index does not necessarily fill/use all palette entries (-> initialize aPalette to avoid underfined behaviour)
   CGIF_FrameConfig fConfig     = {0};
   uint8_t* pNewBef;
   const uint16_t   imageWidth  = pGIF->config.width;
@@ -516,7 +518,7 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
   fConfig.delay         = pConfig->delay;
   fConfig.attrFlags     = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
 
-  const int sizeLCT              = rgb_to_index(pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, &hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
+  const int sizeLCT      = rgb_to_index(pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, &hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
   fConfig.numLocalPaletteEntries = sizeLCT;
   if(hasAlpha) {
     fConfig.attrFlags   |= CGIF_FRAME_ATTR_HAS_ALPHA;
