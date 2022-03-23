@@ -12,11 +12,12 @@ NC='\033[0m'
 rAll=0
 tcc -c -o cgif_raw.o -I../inc ../src/cgif_raw.c
 tcc -c -o cgif.o -I../inc ../src/cgif.c
+tcc -c -o cgif_rgb.o -I../inc ../src/cgif_rgb.c
 for sTest in *.c
 do
   printf %s "$sTest: "
   basename=`basename $sTest .c`
-  tcc -o $basename.out -I../inc $sTest cgif.o cgif_raw.o
+  tcc -o $basename.out -lm -I../inc $sTest cgif.o cgif_raw.o cgif_rgb.o
   idontcare=`./$basename.out`
   r=$?
   #
@@ -36,7 +37,7 @@ do
     printf "${GREEN}OK${NC}\n"
   fi
 done
-rm -f cgif.o cgif_raw.o
+rm -f cgif.o cgif_raw.o cgif_rgb.o
 #
 # check MD5 hashes
 md5sum -c --quiet tests.md5
