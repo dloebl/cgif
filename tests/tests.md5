@@ -25,12 +25,12 @@ a7c04cb7b6d19a16023497da03384408  only_local_table.gif
 5a72df08de28f6a72dfed41c635db9e9  overlap_everything_only_trans.gif
 e9e789738541e15028dfe2abdbc67314  overlap_some_rows.gif
 04992da4ed129affa00418dba7c41d76  rgb_255colors.gif
-44c060fc43ba6ca5236931ee39fee4da  rgb_256colors.gif
-40f84289d84eb14bded5380d9771f6f8  rgb_256digit.gif
-8ec77a7055cbdcb309b5412ad5e2d893  rgb_all_colors.gif
+5da604d0fa984ca3db40ffdacf528bf9  rgb_256colors.gif
+a889ae328514dfe0d95d0f37144176b1  rgb_256digit.gif
+# too large for CI: 8eb721dbb4356f6430fbc9af90027072  rgb_all_colors.gif
 9309200b7a15dbf2496399119f6c67f3  rgb_single_color.gif
-3be11a99f43517a6b98dd4af16759158  rgb_noise.gif
-88d044d11a92cb3806577a6789f115a7  rgb_noise_animated.gif
+8479e14405dc21ce7a58cdad36e79957  rgb_noise.gif
+5d2bc673930b9b6b0ead347c78cf70bd  rgb_noise_animated.gif
 41b1b51c1aebb0ec72b44d0d2a395d58  trans_inc_initdict.gif
 327d60a4a703fc6892061bd701ff6e58  user_trans.gif
 4c58f4fcd9dbf119385a99cdcd353114  write_fn.gif

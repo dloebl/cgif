@@ -28,7 +28,6 @@ typedef struct treeNode {
   uint32_t idxMin, idxMax; // minimum and maximum index referring to global palette
   uint8_t cutDim;          // dimension along which the cut (node split) is done
   uint8_t colIdx;          // color index (only meaningful for leave node)
-  uint8_t height;          // node height
   bool isLeave;            // is leave node or not
 } treeNode;
 
@@ -173,7 +172,7 @@ static void get_variance(const uint8_t* pPalette, const uint32_t* frequ, uint32_
   }
 }
 
-static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* numLeaveNodes, uint32_t idxMin, uint32_t idxMax, uint8_t height, uint8_t colIdx) {
+static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* numLeaveNodes, uint32_t idxMin, uint32_t idxMax, uint8_t colIdx) {
   float var[3];
 
   treeNode* node = malloc(sizeof(treeNode));
@@ -181,7 +180,6 @@ static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* num
   node->idxMax   = idxMax; // maximum color in pPalette belonging to the node
   get_variance(pPalette, frequ, idxMin, idxMax, var, node->mean);
   node->cutDim  = argmax64(var, 3); // dimension along which the cut (node split) is done
-  node->height  = height; // node height
   node->colIdx  = colIdx; // index referring to (averaged) color in new color table
   node->isLeave = 1;      // every new node starts as a leave node
   (*numLeaveNodes)++;     // increase counter when leave node is added
@@ -189,11 +187,17 @@ static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* num
 }
 
 /* create the decision tree. (Similar to qsort with limited depth: pPalette, frequ get sorted) */
-static void crawl_decision_tree(treeNode* parent, uint16_t* numLeaveNodes, uint8_t* pPalette, uint32_t* frequ, uint16_t colMax, uint8_t depthMax) {
+static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t* pPalette, uint32_t* frequ, uint16_t colMax) {
   uint32_t i, k, saveNum;
+  uint16_t nodeIdx = 0;
   uint8_t saveBlk[3];
+  treeNode* parent;
+  treeNode* nodeList[512]; // array of pointers to nodes for breadth-first tree traversal
+  nodeList[0] = root;
 
-  if(*numLeaveNodes <= (colMax - 1) && (parent->idxMax - parent->idxMin) >= 1 && parent->height < depthMax) { // conditions for a node split
+  while(*numLeaveNodes <= (colMax - 1)){
+    parent = nodeList[nodeIdx++]; // go to next node in the list
+    if (parent->idxMax - parent->idxMin >= 1) { // condition for node split
     i = parent->idxMin; // start of block minimum
     k = parent->idxMax; // start at block maximum
     while(i < k) { // split parent node in two blocks (like one step in qsort)
@@ -210,10 +214,11 @@ static void crawl_decision_tree(treeNode* parent, uint16_t* numLeaveNodes, uint8
     }
     parent->isLeave = 0; // parent is no leave node anymore when children added
     (*numLeaveNodes)--;  // decrease counter since parent is removed as a leave node
-    parent->child0 = new_tree_node(pPalette, frequ, numLeaveNodes, parent->idxMin, i - 1, parent->height + 1, parent->colIdx); // i-1 is last index of 1st block, one child takes color index from parent
-    parent->child1 = new_tree_node(pPalette, frequ, numLeaveNodes, i, parent->idxMax, parent->height + 1, *numLeaveNodes);
-    crawl_decision_tree(parent->child0, numLeaveNodes, pPalette, frequ, colMax, depthMax);
-    crawl_decision_tree(parent->child1, numLeaveNodes, pPalette, frequ, colMax, depthMax);
+    parent->child0 = new_tree_node(pPalette, frequ, numLeaveNodes, parent->idxMin, i - 1, parent->colIdx); // i-1 is last index of 1st block, one child takes color index from parent
+    parent->child1 = new_tree_node(pPalette, frequ, numLeaveNodes, i, parent->idxMax, *numLeaveNodes);
+    nodeList[2*(*numLeaveNodes) - 3] = parent->child0; // add new child nodes to the list (total number of nodes is always 2*(*numLeaveNodes)-1)
+    nodeList[2*(*numLeaveNodes) - 2] = parent->child1; // add new child nodes to the list (total number of nodes is always 2*(*numLeaveNodes)-1)
+    }
   }
 }
 
@@ -246,8 +251,8 @@ static uint8_t get_leave_node_index(const treeNode* root, const float* rgb) {
    (works with dense palette, no hash table) */
 static treeNode* create_decision_tree(uint8_t* pPalette,  uint32_t* pFrequDense, uint8_t* pPalette256, uint32_t cnt, uint16_t colMax, uint8_t depthMax){
   uint16_t numLeaveNodes = 0;
-  treeNode* root = new_tree_node(pPalette, pFrequDense, &numLeaveNodes, 0, cnt - 1, 0, 0);
-  crawl_decision_tree(root, &numLeaveNodes, pPalette, pFrequDense, colMax, depthMax);
+  treeNode* root = new_tree_node(pPalette, pFrequDense, &numLeaveNodes, 0, cnt - 1, 0);
+  crawl_decision_tree(root, &numLeaveNodes, pPalette, pFrequDense, colMax);
   get_palette_from_decision_tree(root, pPalette256); // fill the reduced color table
   return root;
 }
