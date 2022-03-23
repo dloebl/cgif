@@ -31,7 +31,6 @@ tests = [
   'rgb_255colors',
   'rgb_256colors',
   'rgb_256digit',
-  'rgb_all_colors',
   'rgb_single_color',
   'rgb_noise',
   'rgb_noise_animated',

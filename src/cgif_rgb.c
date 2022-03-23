@@ -394,7 +394,6 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
   memset(indexUsed, 0, tableSize);                          // initially no entry in hash-table is used
 
   for(i = 0; i < numPixel; ++i) {
-    cntCollision = 0;
     h = col_hash(&pImageDataRGB[sizePixel * i], hashTable, indexUsed, tableSize, fmtChan, &cntCollision);
     if(h == -1) { // -1 means that the user has set a user-defined transparency (alpha channel)
       hasAlpha = 1;
@@ -422,7 +421,7 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
       cnt = 0;
       for(j = 0; j < tableSize; ++j) { // TBD: wouldn't it be easier to loop over pPalette and also leave pPalette in place?, if indexUsed is also unnecessary then
         if(indexUsed[j] == 1){
-          h = col_hash(&hashTable[3 * j], hashTable_new, indexUsed_new, 2 * tableSize, 3, &cntCollision); // recompute hash with new table size
+          h = col_hash(&hashTable[3 * j], hashTable_new, indexUsed_new, tableSizeNew, 3, &cntCollision); // recompute hash with new table size
           memcpy(&hashTable_new[3 * h], &hashTable[3 * j], 3);                             // put value from old hash table to right position of the new one
           memcpy(&pPalette[3 * cnt], &hashTable[3 * j], 3);
           indexUsed_new[h] = 1;
