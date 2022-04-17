@@ -473,6 +473,7 @@ cgif_result cgif_raw_addframe(CGIFRaw* pGIF, const CGIFRaw_FrameConfig* pConfig)
   LZWResult  encResult;
   int        r, rWrite;
   const int  useLCT = pConfig->sizeLCT; // LCT stands for "local color table"
+  const int  isInterlaced = (pConfig->attrFlags & CGIF_RAW_FRAME_ATTR_INTERLACED) ? 1 : 0;
   uint16_t   numEffColors; // number of effective colors
   uint16_t   initDictLen;
   uint8_t    pow2LCT, initCodeLen;
@@ -501,6 +502,8 @@ cgif_result cgif_raw_addframe(CGIFRaw* pGIF, const CGIFRaw_FrameConfig* pConfig)
   } else {
     numEffColors = pGIF->config.sizeGCT; // global color table in use
   }
+  // encode frame interlaced?
+  IMAGE_PACKED_FIELD(aFrameHeader) |= (isInterlaced << 6);
 
   // transparency in use? we might need to increase numEffColors
   if((pGIF->config.attrFlags & (CGIF_RAW_ATTR_IS_ANIMATED)) && (pConfig->attrFlags & (CGIF_RAW_FRAME_ATTR_HAS_TRANS)) && pConfig->transIndex >= numEffColors) {
@@ -519,9 +522,43 @@ cgif_result cgif_raw_addframe(CGIFRaw* pGIF, const CGIFRaw_FrameConfig* pConfig)
   memcpy(aFrameHeader + IMAGE_OFFSET_HEIGHT, &frameHeightLE, sizeof(uint16_t));
   memcpy(aFrameHeader + IMAGE_OFFSET_TOP,    &frameTopLE,    sizeof(uint16_t));
   memcpy(aFrameHeader + IMAGE_OFFSET_LEFT,   &frameLeftLE,   sizeof(uint16_t));
+  // apply interlaced pattern
+  // TBD creating a copy of pImageData is not ideal, but changes on the LZW encoding would
+  // be necessary otherwise.
+  if(isInterlaced) {
+    uint8_t* pInterlaced = malloc(MULU16(pConfig->width, pConfig->height));
+    if(pInterlaced == NULL) {
+      pGIF->curResult = CGIF_EALLOC;
+      return pGIF->curResult;
+    }
+    uint8_t* p = pInterlaced;
+    // every 8th row (starting with row 0)
+    for(uint32_t i = 0; i < pConfig->height; i += 8) {
+      memcpy(p, pConfig->pImageData + i * pConfig->width, pConfig->width);
+      p += pConfig->width;
+    }
+    // every 8th row (starting with row 4)
+    for(uint32_t i = 4; i < pConfig->height; i += 8) {
+      memcpy(p, pConfig->pImageData + i * pConfig->width, pConfig->width);
+      p += pConfig->width;
+    }
+    // every 4th row (starting with row 2)
+    for(uint32_t i = 2; i < pConfig->height; i += 4) {
+      memcpy(p, pConfig->pImageData + i * pConfig->width, pConfig->width);
+      p += pConfig->width;
+    }
+    // every 2th row (starting with row 1)
+    for(uint32_t i = 1; i < pConfig->height; i += 2) {
+      memcpy(p, pConfig->pImageData + i * pConfig->width, pConfig->width);
+      p += pConfig->width;
+    }
+    r = LZW_GenerateStream(&encResult, MULU16(pConfig->width, pConfig->height), pInterlaced, initDictLen, initCodeLen);
+    free(pInterlaced);
+  } else {
+    r = LZW_GenerateStream(&encResult, MULU16(pConfig->width, pConfig->height), pConfig->pImageData, initDictLen, initCodeLen);
+  }
 
   // generate LZW raster data (actual image data)
-  r = LZW_GenerateStream(&encResult, MULU16(pConfig->width, pConfig->height), pConfig->pImageData, initDictLen, initCodeLen);
   // check for errors
   if(r != CGIF_OK) {
     pGIF->curResult = r;

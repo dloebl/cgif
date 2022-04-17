@@ -18,7 +18,8 @@ extern "C" {
 #define CGIF_RAW_ATTR_NO_LOOP         (1uL << 1) // don't loop a GIF animation: only play it one time.
 
 // flags to set the Frame attributes
-#define CGIF_RAW_FRAME_ATTR_HAS_TRANS (1uL << 0) // provided transIndex should be set
+#define CGIF_RAW_FRAME_ATTR_HAS_TRANS  (1uL << 0) // provided transIndex should be set
+#define CGIF_RAW_FRAME_ATTR_INTERLACED (1uL << 1) // encode frame interlaced
 
 // CGIFRaw_Config type
 // note: internal sections, subject to change.
