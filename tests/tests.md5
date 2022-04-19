@@ -1,6 +1,7 @@
 cffd10a00f40b7e9c4a002251e5e9b7e  all_optim.gif
 3419edce150c2f30dc3979207f0e516d  alpha.gif
 334dc7f22fb6ad225f7e6c8c164eeaab  animated_color_gradient.gif
+1733f62baf5491f9ab2e0b85b944d02e  animated_interlaced.gif
 9996ce895768140e06941161e6fb42ee  animated_single_pixel.gif
 59234443f5b84b0332c686c3416b6a7b  animated_snake.gif
 b30bd5a37fbaf2eca0ed00fd0822627a  animated_stripe_pattern_2.gif
@@ -18,12 +19,14 @@ f2bfeb47a7ecc834ae21140f02c60297  min_size.gif
 bcf6674e99f31e67da5bc17ad93cb7a7  more_than_256_colors.gif
 c6a8e6f6d6d0c969cb300ea7eb18391d  noise256.gif
 7de24bdbff1dec81aab1840bcf69b19f  noise6.gif
+06616047c7eba89ea74e0d1783e44c78  noise6_interlaced.gif
 92336ea86024feb0a65bc21fde9bee61  noloop.gif
 3337de21095a6b19effb40c518af96e5  one_full_block.gif
 a7c04cb7b6d19a16023497da03384408  only_local_table.gif
 013513307101f1d6b80164cdb3318c1c  overlap_everything.gif
 5a72df08de28f6a72dfed41c635db9e9  overlap_everything_only_trans.gif
 e9e789738541e15028dfe2abdbc67314  overlap_some_rows.gif
+aa31b2280914bb30b9b9525f8e0b87d8  stripe_pattern_interlaced.gif
 41b1b51c1aebb0ec72b44d0d2a395d58  trans_inc_initdict.gif
 327d60a4a703fc6892061bd701ff6e58  user_trans.gif
 4c58f4fcd9dbf119385a99cdcd353114  write_fn.gif

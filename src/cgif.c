@@ -328,6 +328,7 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   if(hasAlpha || (pCur->config.genFlags & CGIF_FRAME_GEN_USE_TRANSPARENCY) || hasSetTransp) {
     rawConfig.attrFlags |= CGIF_RAW_FRAME_ATTR_HAS_TRANS;
   }
+  rawConfig.attrFlags |= (pCur->config.attrFlags & CGIF_FRAME_ATTR_INTERLACED) ? CGIF_RAW_FRAME_ATTR_INTERLACED : 0;
   rawConfig.width          = width;
   rawConfig.height         = height;
   rawConfig.top            = top;
