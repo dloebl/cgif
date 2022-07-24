@@ -6,9 +6,10 @@
 #include "cgif.h"
 
 #define MULU16(a, b) (((uint32_t)a) * ((uint32_t)b)) // helper macro to correctly multiply two U16's without default signed int promotion
-
-// to be done:
-// cleanup/refactor this module.
+#define MAX(a,b) (a >= b ? a : b)
+#define MIN(a,b) (a <= b ? a : b)
+#define MAX_TABLE_SIZE 16777216 // 256*256*256
+#define MAX_COLLISIONS 30 // maximum number of collisions before hash-table resize
 
 struct st_cgif_rgb {
   CGIF*          pGIF;
@@ -44,7 +45,7 @@ static uint64_t argmax64(float* arry, uint64_t n){
   return imax;
 }
 
-/* get the next prime number above the next power of two, input must be within [512, 2*256^3]*/
+/* get the next prime number above the next power of two */
 static int getNextPrimePower2(int N){
   if(N <= 512) {return 521;}
   else if(N <= 1024) {return 1031;}
@@ -61,15 +62,7 @@ static int getNextPrimePower2(int N){
   else if (N <= 2097152) {return 2097169;}
   else if (N <= 4194304) {return 4194319;}
   else if (N <= 8388608) {return 8388617;}
-  else {return 256*256*256;} // no prime number, but the largest table size which is meaningful
-}
-
-static float min(float a, float b){
-  return (a <= b) ? a : b;
-}
-
-static float max(float a, float b){
-  return (a >= b) ? a : b;
+  else {return MAX_TABLE_SIZE;} // largest table size that is meaningful (no prime number)
 }
 
 static Pixel getPixelVal(const uint8_t* pData, cgif_chan_fmt fmtChan) {
@@ -100,14 +93,10 @@ static int32_t col_hash(const uint8_t* rgb, const uint8_t* hashTable, const uint
     return -1;
   }
   h = (pix.r * 256 * 256 + pix.g * 256 + pix.b) % tableSize;
-  while(1) {
-    if(indexUsed[h] == 0 || memcmp(rgb, &hashTable[3 * h], 3) == 0) {
-      return h;
-    } else {
-      ++(*cntCollision);
-      ++h; // go on searching for a free spot
-      h = h % tableSize; // start from beginning if there is no free stop at the end
-    }
+  while(indexUsed[h] != 0 && memcmp(rgb, &hashTable[3 * h], 3) != 0) { // until free spot is found
+    ++(*cntCollision);
+    ++h;
+    h = h % tableSize; // start from beginning if there is no free spot at the end
   }
   return h;
 }
@@ -267,13 +256,13 @@ static void free_decision_tree(treeNode* root){
 }
 
 /* get image with max 256 color indices using Floyd-Steinberg dithering */
-static void get_quantized_dithered_image(uint8_t* pImageData, float* pImageDataRGBfloat, uint8_t* pPalette256, treeNode* root, uint32_t numPixel, uint32_t width, bool dithering, uint8_t transIndex, cgif_chan_fmt fmtChan, uint8_t* pBef, cgif_chan_fmt befFmtChan, int hasAlpha) {
+static void get_quantized_dithered_image(uint8_t* pImageData, float* pImageDataRGBfloat, uint8_t* pPalette256, treeNode* root, uint32_t numPixel, uint32_t width, uint8_t dithering, uint8_t transIndex, cgif_chan_fmt fmtChan, uint8_t* pBef, cgif_chan_fmt befFmtChan, int hasAlpha) {
   // pImageData: image with (max 256) color indices (length: numPixel)
   // pImageDataRGBfloat: image with RGB colors (length: 3*numPixel) must be signed to avoid overflow due to error passing, float only needed because of 0.9 factor
   // pPalette256: quantized color palette (indexed by node->colIdx), only used if dithering is on
   // root: root node of the decision tree for color quantization
   // numPixel, width: size of the image
-  // dithering: use dithering or not
+  // dithering: 0 (no dithering), 1: Floyd-Steinberg dithering, else: Sierra dithering
   uint32_t i;
   uint8_t k;
   int err; // color errors
@@ -311,56 +300,60 @@ static void get_quantized_dithered_image(uint8_t* pImageData, float* pImageDataR
 
       // restrict color + error to 0-255 interval
       for(k = 0; k<3; ++k) {
-        pImageDataRGBfloat[fmtChan * i + k] = max(0,min(pImageDataRGBfloat[fmtChan * i + k], 255)); // cut to 0-255 before
+        pImageDataRGBfloat[fmtChan * i + k] = MAX(0,MIN(pImageDataRGBfloat[fmtChan * i + k], 255)); // cut to 0-255 before
       }
 
       pImageData[i] = get_leave_node_index(root, &pImageDataRGBfloat[fmtChan * i]);  // use decision tree to get indices for new colors
       for(k = 0; k<3; ++k) {
         err = pImageDataRGBfloat[fmtChan * i + k] - pPalette256[3 * pImageData[i] + k]; // compute color error
+
         //diffuse error with Floyd-Steinberg dithering.
-        if(i % width < width-1){
-          pImageDataRGBfloat[fmtChan * (i+1) + k] += factor * (7*err >> 4);
-        }
-        if(i < numPixel - width){
-          pImageDataRGBfloat[fmtChan * (i+width) + k] += factor * (5*err >> 4);
-          if(i % width > 0){
-            pImageDataRGBfloat[fmtChan * (i+width-1) + k] += factor * (3*err >> 4);
-          }
+        if(dithering == 1) {
           if(i % width < width-1){
-            pImageDataRGBfloat[fmtChan * (i+width+1) + k] += factor * (1*err >> 4);
+            pImageDataRGBfloat[fmtChan * (i+1) + k] += factor * (7*err >> 4);
           }
-        }
-        // Sierra dithering
-        /*if(i % width < width-1){
-          pImageDataRGBfloat[fmtChan * (i+1) + k] += factor * (5*err >> 5);
-          if(i % width < width-2){
-            pImageDataRGBfloat[fmtChan * (i+2) + k] += factor * (3*err >> 5);
-          }
-        }
-        if(i < numPixel - width){
-          pImageDataRGBfloat[fmtChan * (i+width) + k] += factor * (5*err >> 5);
-          if(i % width > 0){
-            pImageDataRGBfloat[fmtChan * (i+width-1) + k] += factor * (4*err >> 5);
-            if(i % width > 1){
-              pImageDataRGBfloat[fmtChan * (i+width-2) + k] += factor * (2*err >> 5);
-            }
-          }
-          if(i % width < width-1){
-            pImageDataRGBfloat[fmtChan * (i+width+1) + k] += factor * (4*err >> 5);
-            if(i % width < width-2){
-              pImageDataRGBfloat[fmtChan * (i+width+2) + k] += factor * (2*err >> 5);
-            }
-          }
-          if(i < numPixel - 2*width){
-            pImageDataRGBfloat[fmtChan * (i+2*width) + k] += factor * (3*err >> 5);
+          if(i < numPixel - width){
+            pImageDataRGBfloat[fmtChan * (i+width) + k] += factor * (5*err >> 4);
             if(i % width > 0){
-              pImageDataRGBfloat[fmtChan * (i+2*width-1) + k] += factor * (2*err >> 5);
+              pImageDataRGBfloat[fmtChan * (i+width-1) + k] += factor * (3*err >> 4);
             }
             if(i % width < width-1){
-              pImageDataRGBfloat[fmtChan * (i+2*width+1) + k] += factor * (2*err >> 5);
+              pImageDataRGBfloat[fmtChan * (i+width+1) + k] += factor * (1*err >> 4);
             }
           }
-        }*/
+        } else {
+          // Sierra dithering
+          if(i % width < width-1){
+            pImageDataRGBfloat[fmtChan * (i+1) + k] += factor * (5*err >> 5);
+            if(i % width < width-2){
+              pImageDataRGBfloat[fmtChan * (i+2) + k] += factor * (3*err >> 5);
+            }
+          }
+          if(i < numPixel - width){
+            pImageDataRGBfloat[fmtChan * (i+width) + k] += factor * (5*err >> 5);
+            if(i % width > 0){
+              pImageDataRGBfloat[fmtChan * (i+width-1) + k] += factor * (4*err >> 5);
+              if(i % width > 1){
+                pImageDataRGBfloat[fmtChan * (i+width-2) + k] += factor * (2*err >> 5);
+              }
+            }
+            if(i % width < width-1){
+              pImageDataRGBfloat[fmtChan * (i+width+1) + k] += factor * (4*err >> 5);
+              if(i % width < width-2){
+                pImageDataRGBfloat[fmtChan * (i+width+2) + k] += factor * (2*err >> 5);
+              }
+            }
+            if(i < numPixel - 2*width){
+              pImageDataRGBfloat[fmtChan * (i+2*width) + k] += factor * (3*err >> 5);
+              if(i % width > 0){
+                pImageDataRGBfloat[fmtChan * (i+2*width-1) + k] += factor * (2*err >> 5);
+              }
+              if(i % width < width-1){
+                pImageDataRGBfloat[fmtChan * (i+2*width+1) + k] += factor * (2*err >> 5);
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -375,11 +368,11 @@ static void get_quantized_dithered_image(uint8_t* pImageData, float* pImageDataR
 // palette:       pointer to color palette (output)
 // pPalette256:   new color palette with 256 colors max.
 // depthMax:      maximum depth of decision tree for colors quantization (sets number of colors)
+// dithering: 0 (no dithering), 1: Floyd-Steinberg dithering, else: Sierra dithering
 static
-uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t width, cgif_chan_fmt fmtChan, uint8_t* pImageData, uint8_t* pPalette256, uint8_t depthMax, int* pHasAlpha, uint8_t* pBef, cgif_chan_fmt befFmtChan) {
-  uint32_t i,j;
+uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t width, cgif_chan_fmt fmtChan, uint8_t* pImageData, uint8_t* pPalette256, uint8_t depthMax, uint8_t dithering, int* pHasAlpha, uint8_t* pBef, cgif_chan_fmt befFmtChan) {
+  uint32_t i,j,h;
   uint32_t cntCollision;                                    // count the number of collisions
-  int32_t  h;
   uint32_t  cnt       = 0;                                  // count the number of colors
   uint32_t  tableSize = 262147;                             // initial size of the hash table
   uint32_t tableSizeNew;                                    // size of hash-table when increasing its size
@@ -409,13 +402,13 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
       memcpy(&pPalette[3 * cnt], &pImageDataRGB[sizePixel * i], 3); // add new color to palette
       indexUsed[h] = 1;    // mark hash table entry as used
       colIdx[h]    = cnt;  // assign index to color
-      frequ[h]     = 1;    // the new color occured 1x by now
+      frequ[h]     = 1;    // the new color occured 1x (1st time)
       ++cnt;               // one new color added
     } else {               // if color exists already
       frequ[h] += 1;       // increment color histrogram
     }
     // resize the hash table (if more than half-full)
-    if((cnt > (tableSize >> 1) || cntCollision > 30) && tableSize < 256*256*256) {
+    if((cnt > (tableSize >> 1) || cntCollision > MAX_COLLISIONS) && tableSize < MAX_TABLE_SIZE) {
       tableSizeNew  = getNextPrimePower2(tableSize); // increase table size to the next prime number above the next power of two
       pPalette      = realloc(pPalette, 3 * tableSizeNew);
       colIdx        = realloc(colIdx, sizeof(uint32_t) * tableSizeNew);
@@ -445,7 +438,7 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
     }
   }
 
-  const uint16_t colMax = (1uL << depthMax) - 1; // maximum number of colors (-1 to leave space for transparency), TBD: maybe no quantization for static image with 256 colors
+  const uint16_t colMax = (1uL << depthMax) - 1; // maximum number of colors (-1 to leave space for transparency), disadvantage (TBD): quantization for static image with 256 colors and no alpha channel unnecessary
   if(cnt > colMax) { // color-quantization is needed
     uint32_t* pFrequDense = hash_to_dense(pPalette, frequ, cnt, hashTable, indexUsed, tableSize, fmtChan);
     treeNode* root        = create_decision_tree(pPalette, pFrequDense, pPalette256, cnt, colMax, depthMax); // create decision tree (dynamic, splits along rgb-dimension with highest variance)
@@ -454,7 +447,7 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
     transIndex = colMax;
-    get_quantized_dithered_image(pImageData, pImageDataRGBfloat, pPalette256, root, numPixel, width, true, transIndex, fmtChan, pBef, befFmtChan, hasAlpha); // do color quantization and dithering
+    get_quantized_dithered_image(pImageData, pImageDataRGBfloat, pPalette256, root, numPixel, width, dithering, transIndex, fmtChan, pBef, befFmtChan, hasAlpha); // do color quantization and dithering
     free(pImageDataRGBfloat); // RGB image is not needed anymore
     free_decision_tree(root); // tree for color quantization is not needed anymore
     free(pFrequDense);
@@ -473,7 +466,6 @@ uint32_t rgb_to_index(const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t 
     }
     memcpy(pPalette256, pPalette, 3 * 256); // keep the color palette (no quantization)
   }
-
   *pHasAlpha = hasAlpha;
   free(colIdx);
   free(hashTable);
@@ -522,7 +514,7 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
   fConfig.delay         = pConfig->delay;
   fConfig.attrFlags     = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
 
-  const int sizeLCT      = rgb_to_index(pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, &hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
+  const int sizeLCT      = rgb_to_index(pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, 1, &hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
   fConfig.numLocalPaletteEntries = sizeLCT;
   if(hasAlpha) {
     fConfig.attrFlags   |= CGIF_FRAME_ATTR_HAS_ALPHA;
