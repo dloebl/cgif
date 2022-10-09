@@ -26,5 +26,6 @@ import('pkgconfig').generate(
 
 if get_option('tests') and not meson.is_cross_build()
   libcgif_dep = declare_dependency(link_with : lib)
+  subdir('examples')
   subdir('tests')
 endif
