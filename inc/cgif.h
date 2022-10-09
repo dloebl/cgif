@@ -16,6 +16,7 @@ extern "C" {
 #define CGIF_FRAME_ATTR_USE_LOCAL_TABLE  (1uL << 0)       // use a local color table for a frame (local color table is not used by default)
 #define CGIF_FRAME_ATTR_HAS_ALPHA        (1uL << 1)       // alpha channel index provided by user (transIndex field)
 #define CGIF_FRAME_ATTR_HAS_SET_TRANS    (1uL << 2)       // transparency setting provided by user (transIndex field)
+#define CGIF_FRAME_ATTR_INTERLACED       (1uL << 3)       // encode frame interlaced (default is not interlaced)
 // flags to decrease GIF-size
 #define CGIF_FRAME_GEN_USE_TRANSPARENCY  (1uL << 0)       // use transparency optimization (setting pixels identical to previous frame transparent)
 #define CGIF_FRAME_GEN_USE_DIFF_WINDOW   (1uL << 1)       // do encoding just for the sub-window that has changed from previous frame
