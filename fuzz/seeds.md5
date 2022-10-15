@@ -1,6 +1,7 @@
 0dd2316a1f86820693ba6cad087c3dd7  all_optim.seed
 eb9ddbe246c11313a35ca36cef7e3f8e  alpha.seed
 a45a554565ced6e0e8bec5d56a1630d0  animated_color_gradient.seed
+01df3c73cdcaabb0bd93eb790b8b7b7a  animated_interlaced.seed
 7e8739991e7e9ef70a6f549214d6caa7  animated_single_pixel.seed
 63f0a0a433d2c089783bfae0f220bd30  animated_snake.seed
 69311c0844964be056721c4ce4d8009e  animated_stripe_pattern_2.seed
@@ -20,12 +21,15 @@ c3509fd202617f720500e7183d1c0b04  local_transp.seed
 8e6897b7c334172c750ef237177d6989  min_size.seed
 af137262379b55c94306fd2f8ad1b89d  more_than_256_colors.seed
 4a0889aa9f7480457c3018572a68b587  noise256.seed
+6f75666516a140e1c5c455a94319476d  noise6_interlaced.seed
 1eba073929ba2bad9c458aa6d4f579f0  noise6.seed
+9c3f31150db17d4eadb7f9390c71b2b8  noloop.seed
 5f35a76ad83a63e5de1e6e7ca03a3c9b  one_full_block.seed
 0b8a0738189dd0aed661db8f861729d8  only_local_table.seed
 f72fb128391ffd4b1ec4ace78e5ba923  overlap_everything_only_trans.seed
 0778c673045b32c2ed2fa141e138e887  overlap_everything.seed
 9ebff14069677230197ceeea66910f50  overlap_some_rows.seed
+b77b115cb1876f1bffff47c93c574b1b  stripe_pattern_interlaced.seed
 261fb31b5dce05c027ff88afaa511ceb  trans_inc_initdict.seed
 6afa51906870c548e39c25b8ef0cd0dc  user_trans.seed
 464c002f693d92ceb6d563a3d311ab8c  write_fn.seed
