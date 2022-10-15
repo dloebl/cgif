@@ -1,4 +1,5 @@
 # TBD: replace with custom python zip tool (just like scripts/md5sum.py)
+# TBD: allow to generate the seed corpus without having to invoke all unit tests.
 zip = find_program('zip', required : false)
 foreach t : tests
   name = t.get('name')
