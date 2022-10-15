@@ -23,7 +23,7 @@ int main(int argn, char** pArgs) {
   // read input
   uint8_t* pData = malloc(size);
   if(pData == NULL) {
-    fclose(pData);
+    fclose(pFile);
     return 3;
   }
   size_t r = fread(pData, size, 1, pFile);
