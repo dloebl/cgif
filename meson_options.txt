@@ -4,3 +4,11 @@ option(
   value : true,
   description : 'build tests',
 )
+
+option(
+   'fuzzer',
+   type : 'boolean',
+   value : false,
+   description : 'generate fuzz seed corpus and test it with standalone fuzzer',
+)
+

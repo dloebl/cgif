@@ -25,8 +25,10 @@ jobs:
       - name: Dependencies (windows)
         if: contains(matrix.os, 'windows')
         run: choco install gifsicle
+      - name: Setup
+        run: meson setup build -Dtests=true -Dfuzzer=true
       - name: Build
-        run: meson setup build && meson compile -C build
+        run: meson compile -C build
       - name: Test
         run: meson test -C build
       - name: Verify GIF test output (gifsicle)
@@ -34,7 +36,7 @@ jobs:
         shell: bash
       - name: Valgrind
         if: contains(matrix.os, 'ubuntu')
-        run: basename -s .c tests/*.c | xargs meson test -C build --wrap "valgrind --memcheck:leak-check=full --memcheck:show-leak-kinds=definite --memcheck:error-exitcode=1"
+        run: meson test -C build --list | grep -v zip | grep -v checksums | sed 's/^/"/;s/$/"/' | xargs meson test -C build/ --wrap "valgrind --memcheck:leak-check=full --memcheck:show-leak-kinds=definite --memcheck:error-exitcode=1"
         shell: bash
       - name: Valgrind output
         if: contains(matrix.os, 'ubuntu')
