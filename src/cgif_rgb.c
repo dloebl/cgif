@@ -507,6 +507,11 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
   const uint32_t   numPixel    = MULU16(imageWidth, imageHeight);
   int              hasAlpha;
   
+  // TBD check for previous errors
+  // check if fmtChan param is valid (only RGB, RGBA allowed)
+  if(pConfig->fmtChan != CGIF_CHAN_FMT_RGB && pConfig->fmtChan != CGIF_CHAN_FMT_RGBA) {
+    return CGIF_ERROR;
+  }
   pNewBef = malloc(pConfig->fmtChan * MULU16(imageWidth, imageHeight));
   memcpy(pNewBef, pConfig->pImageData, pConfig->fmtChan * MULU16(imageWidth, imageHeight));
   fConfig.pLocalPalette = aPalette;
