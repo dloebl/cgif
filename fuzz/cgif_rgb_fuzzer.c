@@ -52,6 +52,9 @@ static int read_frameconfig(ByteStream* pStream, CGIFrgb_FrameConfig* pDest, siz
   r |= readdata(pStream, &pDest->genFlags,               2);
   r |= readdata(pStream, &pDest->delay,                  2);
   r |= readdata(pStream, &pDest->fmtChan,                1);
+  if(pDest->fmtChan > 4) {
+    return -1; // invalid fmtChan (avoid OOM)
+  }
   pDest->pImageData = (uint8_t*)malloc(sizeImageData * pDest->fmtChan);
   if(pDest->pImageData == NULL) return 0; // malloc failed
   r |= readdata(pStream, pDest->pImageData, sizeImageData * pDest->fmtChan);
