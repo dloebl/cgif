@@ -16,6 +16,7 @@ struct st_cgif_rgb {
   CGIFrgb_Config config;
   uint8_t*       pBefImageData;
   cgif_chan_fmt  befFmtChan;
+  cgif_result    curResult;
 };
 
 typedef struct {
@@ -493,7 +494,8 @@ CGIFrgb* cgif_rgb_newgif(const CGIFrgb_Config* pConfig) {
     free(pGIFrgb);
     return NULL;
   }
-  pGIFrgb->config = *pConfig;
+  pGIFrgb->config    = *pConfig;
+  pGIFrgb->curResult = CGIF_PENDING;
   return pGIFrgb;  
 }
 
@@ -506,10 +508,13 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
   const uint16_t   imageHeight = pGIF->config.height;
   const uint32_t   numPixel    = MULU16(imageWidth, imageHeight);
   int              hasAlpha;
-  
-  // TBD check for previous errors
+  // check for previous errors
+  if(pGIF->curResult != CGIF_OK && pGIF->curResult != CGIF_PENDING) {
+    return pGIF->curResult;
+  }
   // check if fmtChan param is valid (only RGB, RGBA allowed)
   if(pConfig->fmtChan != CGIF_CHAN_FMT_RGB && pConfig->fmtChan != CGIF_CHAN_FMT_RGBA) {
+    pGIF->curResult = CGIF_ERROR;
     return CGIF_ERROR;
   }
   pNewBef = malloc(pConfig->fmtChan * MULU16(imageWidth, imageHeight));
@@ -535,6 +540,7 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
 
   // cleanup
   free(fConfig.pImageData);
+  pGIF->curResult = r;
   return r;
 }
 
