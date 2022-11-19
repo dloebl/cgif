@@ -5,8 +5,8 @@
 
 #include "cgif.h"
 
-#define WIDTH  700
-#define HEIGHT 320
+#define WIDTH  70
+#define HEIGHT 32
 
 static uint64_t seed;
 
