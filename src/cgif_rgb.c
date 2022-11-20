@@ -491,7 +491,7 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
     uint8_t transIndex = colhash->cnt;
     for(uint32_t i = 0; i < numPixel; ++i) {
       if(!hasAlpha && pBef) {
-        if(memcmp(&pImageData[sizePixel * i], &pBef[befFmtChan * i], 3) == 0) {
+        if(memcmp(&pImageDataRGB[sizePixel * i], &pBef[befFmtChan * i], 3) == 0) {
           pImageData[i] = transIndex;
           continue;
         }
