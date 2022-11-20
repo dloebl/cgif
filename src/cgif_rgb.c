@@ -95,12 +95,26 @@ static Pixel getPixelVal(const uint8_t* pData, cgif_chan_fmt fmtChan) {
 }
 
 /* get a hash from rgb color values (use open addressing, if entry does not exist, next free spot is returned) */
-static int32_t col_hash(const uint8_t* rgb, const uint8_t* hashTable, const uint8_t* indexUsed, const uint32_t tableSize, cgif_chan_fmt fmtChan, uint32_t* cntCollision) {
+static int32_t col_hash(const uint8_t* rgb, const uint8_t* hashTable, const uint8_t* indexUsed, const uint32_t tableSize, cgif_chan_fmt fmtChan) {
+  uint32_t h;
+  const Pixel pix = getPixelVal(rgb, fmtChan);
+  if(pix.a == 0) { // has alpha channel?
+    return -1;
+  }
+  h = (pix.r * 256 * 256 + pix.g * 256 + pix.b) % tableSize;
+  while(indexUsed[h] != 0 && memcmp(rgb, &hashTable[3 * h], 3) != 0) { // until free spot is found
+    ++h;
+    h = h % tableSize; // start from beginning if there is no free spot at the end
+  }
+  return h;
+}
+
+/* same as col_hash but also count the number of collisions */
+static int32_t col_hash_collision_count(const uint8_t* rgb, const uint8_t* hashTable, const uint8_t* indexUsed, const uint32_t tableSize, cgif_chan_fmt fmtChan, uint32_t* cntCollision) {
   uint32_t h;
   const Pixel pix = getPixelVal(rgb, fmtChan);
   *cntCollision = 0; // count the number of collisions
-  // has alpha channel?
-  if(pix.a == 0) {
+  if(pix.a == 0) { // has alpha channel?
     return -1;
   }
   h = (pix.r * 256 * 256 + pix.g * 256 + pix.b) % tableSize;
@@ -150,8 +164,7 @@ static void resize_col_hash_table(colHashTable* colhash){
   colhash->cnt = 0;
   for(uint32_t j = 0; j < colhash->tableSize; ++j) { // TBD (no improvement when tested): easier to loop over pPalette and also leave pPalette in place?, if indexUsed is also unnecessary then
     if(colhash->indexUsed[j] == 1){
-      uint32_t dummy;
-      uint32_t h = col_hash(colhash->hashTable + 3 * j, hashTable_new, indexUsed_new, tableSizeNew, 3, &dummy); // recompute hash with new table size
+      uint32_t h = col_hash(colhash->hashTable + 3 * j, hashTable_new, indexUsed_new, tableSizeNew, 3); // recompute hash with new table size
       memcpy(&hashTable_new[3 * h], colhash->hashTable + 3 * j, 3); // put value from old hash table to right position of the new one
       memcpy(colhash->pPalette + 3 * colhash->cnt, colhash->hashTable + 3 * j, 3);
       indexUsed_new[h] = 1;
@@ -172,10 +185,10 @@ static void resize_col_hash_table(colHashTable* colhash){
 /* take frequ indexed by hash(rgb) and return corresponding dense array */
 static uint32_t* hash_to_dense(colHashTable* colhash, cgif_chan_fmt fmtChan) {
   uint32_t* frequDense = malloc(sizeof(uint32_t) * colhash->cnt);
-  uint32_t h, cntCollision;
+  uint32_t h;
   (void)fmtChan;
   for(uint32_t i = 0; i < colhash->cnt; ++i) {
-    h = col_hash(colhash->pPalette + 3 * i, colhash->hashTable, colhash->indexUsed, colhash->tableSize, 3, &cntCollision);
+    h = col_hash(colhash->pPalette + 3 * i, colhash->hashTable, colhash->indexUsed, colhash->tableSize, 3);
     frequDense[i] = colhash->frequ[h];
   }
   return frequDense;
@@ -435,9 +448,8 @@ static colHashTable* get_color_histogram(const uint8_t* pImageDataRGB, uint32_t 
   colHashTable* colhash = init_col_hash_table(tableSize);   // initialize the hash table storing all the colors
   *pHasAlpha = 0;                                           // assume no alpha channel until it is found
   const uint8_t sizePixel = fmtChan;                        // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
-
   for(uint32_t i = 0; i < numPixel; ++i) {
-    uint32_t h = col_hash(&pImageDataRGB[sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan, &cntCollision);
+    uint32_t h = col_hash_collision_count(&pImageDataRGB[sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan, &cntCollision);
     if(h == -1) { // -1 means that the user has set a user-defined transparency (alpha channel)
       *pHasAlpha = 1;
       continue; // do not take this pixel into account (e.g. alpha channel present)
@@ -472,11 +484,12 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
   // dithering: 0 (no dithering), 1: Floyd-Steinberg dithering, else: Sierra dithering
   // hasAlpha: alpha channel present 1, 0 otheriwse
   // pBef, befFmtChan
-  const uint8_t sizePixel = fmtChan;                        // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
+  const uint8_t sizePixel = fmtChan; // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
   const uint16_t colMax = (1uL << depthMax) - 1; // maximum number of colors (-1 to leave space for transparency), disadvantage (TBD): quantization for static image with 256 colors and no alpha channel unnecessary
   if(colhash->cnt > colMax) { // color-quantization is needed
     uint32_t* pFrequDense = hash_to_dense(colhash, fmtChan);
     treeNode* root        = create_decision_tree(colhash->pPalette, pFrequDense, pPalette256, colhash->cnt, colMax, depthMax); // create decision tree (dynamic, splits along rgb-dimension with highest variance)
+    free(pFrequDense);
     float* pImageDataRGBfloat = malloc(fmtChan * numPixel * sizeof(float)); // TBD fmtChan + only when hasAlpha
     for(uint32_t i = 0; i < fmtChan * numPixel; ++i){
       pImageDataRGBfloat[i] = pImageDataRGB[i];
@@ -485,7 +498,6 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
     get_quantized_dithered_image(pImageData, pImageDataRGBfloat, pPalette256, root, numPixel, width, dithering, transIndex, fmtChan, pBef, befFmtChan, hasAlpha); // do color quantization and dithering
     free(pImageDataRGBfloat); // RGB image is not needed anymore
     free_decision_tree(root); // tree for color quantization is not needed anymore
-    free(pFrequDense);
     colhash->cnt = colMax;
   } else { // no color-quantization is needed if the number of colors is small enough
     uint8_t transIndex = colhash->cnt;
@@ -496,8 +508,7 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
           continue;
         }
       }
-      uint32_t dummy;
-      uint32_t h = col_hash(&pImageDataRGB[sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan, &dummy);
+      uint32_t h = col_hash(&pImageDataRGB[sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan);
       pImageData[i] = (h == -1) ? transIndex : colhash->colIdx[h];
     }
     memcpy(pPalette256, colhash->pPalette, 3 * 256); // keep the color palette (no quantization)
