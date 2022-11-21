@@ -11,6 +11,7 @@ tests = [
   { 'name' : 'animated_stripes_horizontal',        'seed_should_fail' : false},
   { 'name' : 'animated_stripe_pattern',            'seed_should_fail' : false},
   { 'name' : 'animated_stripe_pattern_2',          'seed_should_fail' : false},
+  { 'name' : 'duplicate_frames',                   'seed_should_fail' : false},
   { 'name' : 'earlyclose',                         'seed_should_fail' : true },
   { 'name' : 'eindex',                             'seed_should_fail' : true },
   { 'name' : 'eindex_anim',                        'seed_should_fail' : true },

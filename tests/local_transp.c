@@ -27,6 +27,7 @@ int main(void) {
   memset(&gConfig, 0, sizeof(CGIF_Config));
   memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
   gConfig.attrFlags               = CGIF_ATTR_NO_GLOBAL_TABLE | CGIF_ATTR_IS_ANIMATED;
+  gConfig.genFlags                = CGIF_GEN_KEEP_IDENT_FRAMES;
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.path                    = "local_transp.gif";
