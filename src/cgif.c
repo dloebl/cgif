@@ -163,7 +163,7 @@ static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fram
 
   pCurImageData = pCur->pImageData;
   pBefImageData = pBef->pImageData;
-  // find top 
+  // find top
   i = 0;
   while(i < height) {
     for(int c = 0; c < width; ++c) {
@@ -185,7 +185,7 @@ FoundTop:
     goto Done;
   }
   newTop = i;
-  
+
   // find actual height
   i = height - 1;
   while(i > newTop) {
@@ -232,7 +232,7 @@ Done:
   for (i = 0; i < newHeight; ++i) {
     memcpy(pNewImageData + MULU16(i, newWidth), pCurImageData + MULU16((i + newTop), width) + newLeft, newWidth);
   }
-  
+
   // set new width, height, top, left in DimResult struct
   pResult->width  = newWidth;
   pResult->height = newHeight;
@@ -266,7 +266,7 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   if(!useLCT && (pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE)) {
     return CGIF_ERROR; // invalid config
   }
-  // deactivate impossible size optimizations 
+  // deactivate impossible size optimizations
   //  => in case alpha channel is used
   // CGIF_FRAME_GEN_USE_TRANSPARENCY and CGIF_FRAME_GEN_USE_DIFF_WINDOW are not possible
   if(isFirstFrame || hasAlpha) {
@@ -389,6 +389,26 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     pGIF->curResult = CGIF_ERROR;
     return pGIF->curResult;
   }
+
+  // if frame matches previous frame, drop it completely and sum the frame delay
+  if (pGIF->aFrames[1] != NULL) {
+    uint32_t frameDelay = pConfig->delay + pGIF->aFrames[1]->config.delay;
+    if (frameDelay <= 0xFFFF && !(pGIF->config.genFlags & CGIF_GEN_KEEP_IDENT_FRAMES)) {
+      int sameFrame = 1;
+      for(i=0; i < pGIF->config.width * pGIF->config.height; i++) {
+        if(cmpPixel(pGIF, pConfig, &pGIF->aFrames[1]->config, pConfig->pImageData[i], pGIF->aFrames[1]->config.pImageData[i])) {
+          sameFrame = 0;
+          break;
+        }
+      }
+
+      if (sameFrame) {
+        pGIF->aFrames[1]->config.delay = frameDelay;
+        return CGIF_OK;
+      }
+    }
+  }
+
   // search for free slot in frame queue
   for(i = 1; i < SIZE_FRAME_QUEUE && pGIF->aFrames[i] != NULL; ++i);
   // check whether the queue is full
