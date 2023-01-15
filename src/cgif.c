@@ -261,11 +261,6 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   hasSetTransp   = (pCur->config.attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) ? 1 : 0;
   disposalMethod = pCur->disposalMethod;
   transIndex     = pCur->transIndex;
-  // sanity check:
-  // at least one valid CT needed (global or local)
-  if(!useLCT && (pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE)) {
-    return CGIF_ERROR; // invalid config
-  }
   // deactivate impossible size optimizations
   //  => in case alpha channel is used
   // CGIF_FRAME_GEN_USE_TRANSPARENCY and CGIF_FRAME_GEN_USE_DIFF_WINDOW are not possible
@@ -388,6 +383,12 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   if((pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY) && (pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_ALPHA)) {
     pGIF->curResult = CGIF_ERROR;
     return pGIF->curResult;
+  }
+  // sanity check:
+  // at least one valid CT needed (global or local)
+  if(!(pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) && (pGIF->config.attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE)) {
+    pGIF->curResult = CGIF_ERROR;
+    return CGIF_ERROR; // invalid config
   }
 
   // if frame matches previous frame, drop it completely and sum the frame delay
