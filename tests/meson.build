@@ -15,6 +15,7 @@ tests = [
   { 'name' : 'earlyclose',                         'seed_should_fail' : true },
   { 'name' : 'eindex',                             'seed_should_fail' : true },
   { 'name' : 'eindex_anim',                        'seed_should_fail' : true },
+  { 'name' : 'enopalette',                         'seed_should_fail' : true },
   { 'name' : 'ewrite',                             'seed_should_fail' : true },
   { 'name' : 'global_plus_local_table',            'seed_should_fail' : false},
   { 'name' : 'global_plus_local_table_with_optim', 'seed_should_fail' : false},
