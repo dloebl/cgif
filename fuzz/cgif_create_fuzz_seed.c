@@ -13,11 +13,11 @@
   #error "please set a output path: define CGIF_OUTPATH"
 #endif
 
-typedef struct st_gif {
+struct st_gif {
   CGIF_Config config;
   FILE*       pFile;
   cgif_result curResult;
-} CGIF;
+};
 
 static int writedata(FILE* pFile, const void* pData, uint32_t size) {
   int r = fwrite(pData, size, 1, pFile);
