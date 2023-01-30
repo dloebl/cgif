@@ -1,3 +1,4 @@
+[![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/cgif.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:cgif)
 ## CGIF, a GIF encoder written in C
 
 A fast and lightweight GIF encoder that can create GIF animations and images. Summary of the main features:
