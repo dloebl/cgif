@@ -73,7 +73,10 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
   CGIF*          pGIF;
   CGIFRaw*       pGIFRaw; // raw GIF stream
   CGIFRaw_Config rawConfig = {0};
-
+  // width or heigth cannot be zero
+  if(!pConfig->width || !pConfig->height) {
+    return NULL;
+  }
   pFile = NULL;
   // open output file (if necessary)
   if(pConfig->path) {
