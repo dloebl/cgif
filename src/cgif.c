@@ -9,10 +9,19 @@
 #define MULU16(a, b) (((uint32_t)a) * ((uint32_t)b)) // helper macro to correctly multiply two U16's without default signed int promotion
 #define SIZE_FRAME_QUEUE (3)
 
+// dimension result type
+typedef struct {
+  uint16_t width;
+  uint16_t height;
+  uint16_t top;
+  uint16_t left;
+} DimResult;
+
 // CGIF_Frame type
 // note: internal sections, subject to change in future versions
 typedef struct {
   CGIF_FrameConfig config;
+  DimResult        dimResult;
   uint8_t          disposalMethod;
   uint8_t          transIndex;
 } CGIF_Frame;
@@ -26,14 +35,6 @@ struct st_gif {
   FILE*              pFile;
   cgif_result        curResult;
 };
-
-// dimension result type
-typedef struct {
-  uint16_t width;
-  uint16_t height;
-  uint16_t top;
-  uint16_t left;
-} DimResult;
 
 /* calculate next power of two exponent of given number (n MUST be <= 256) */
 static uint8_t calcNextPower2Ex(uint16_t n) {
@@ -154,8 +155,8 @@ static int cmpPixel(const CGIF* pGIF, const CGIF_FrameConfig* pCur, const CGIF_F
 }
 
 /* optimize GIF file size by only redrawing the rectangular area that differs from previous frame */
-static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult* pResult) {
-  uint8_t* pNewImageData;
+static DimResult getChangeRect(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef) {
+  DimResult      result;
   const uint8_t* pCurImageData;
   const uint8_t* pBefImageData;
   uint16_t       i, x;
@@ -179,10 +180,9 @@ static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fram
     ++i;
   }
 FoundTop:
-  if(i == height) { // need dummy pixel (frame is identical with one before)
-    // TBD we might make it possible to merge identical frames in the future
-    newWidth  = 1;
-    newHeight = 1;
+  if(i == height) {
+    newWidth  = 0;
+    newHeight = 0;
     newLeft   = 0;
     newTop    = 0;
     goto Done;
@@ -229,25 +229,36 @@ FoundHeight:
   newWidth = (x + 1) - newLeft;
 
 Done:
+  // set new width, height, top, left in DimResult struct
+  result.width  = newWidth;
+  result.height = newHeight;
+  result.top    = newTop;
+  result.left   = newLeft;
+  return result;
+}
 
+static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult dimInfo) {
+  uint8_t*        pNewImageData;
+  const uint8_t*  pCurImageData;
+  // check if we need a dummy pixel (frame is identical with one before)
+  const uint16_t  newWidth  = dimInfo.width ? dimInfo.width : 1;
+  const uint16_t  newHeight = dimInfo.height ? dimInfo.height : 1;
+  const uint16_t  newTop    = dimInfo.top;
+  const uint16_t  newLeft   = dimInfo.left;
+  const uint16_t  width     = pGIF->config.width;
+
+  pCurImageData = pCur->pImageData;
   // create new image data
   pNewImageData = malloc(MULU16(newWidth, newHeight)); // TBD check return value of malloc
-  for (i = 0; i < newHeight; ++i) {
+  for (int i = 0; i < newHeight; ++i) {
     memcpy(pNewImageData + MULU16(i, newWidth), pCurImageData + MULU16((i + newTop), width) + newLeft, newWidth);
   }
-
-  // set new width, height, top, left in DimResult struct
-  pResult->width  = newWidth;
-  pResult->height = newHeight;
-  pResult->top    = newTop;
-  pResult->left   = newLeft;
   return pNewImageData;
 }
 
 /* move frame down to the raw GIF API */
 static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   CGIFRaw_FrameConfig rawConfig;
-  DimResult           dimResult;
   uint8_t*            pTmpImageData;
   uint8_t*            pBefImageData;
   int                 isFirstFrame, useLCT, hasAlpha, hasSetTransp;
@@ -283,11 +294,12 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
 
   // purge overlap of current frame and frame before (width - height optim), if required (CGIF_FRAME_GEN_USE_DIFF_WINDOW set)
   if(pCur->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW) {
-    pTmpImageData = doWidthHeightOptim(pGIF, &pCur->config, &pBef->config, &dimResult);
-    width  = dimResult.width;
-    height = dimResult.height;
-    top    = dimResult.top;
-    left   = dimResult.left;
+    pTmpImageData = doWidthHeightOptim(pGIF, &pCur->config, &pBef->config, pCur->dimResult);
+    // check if we need a dummy pixel (frame is identical with one before)
+    width  = pCur->dimResult.width ? pCur->dimResult.width : 1;
+    height = pCur->dimResult.height ? pCur->dimResult.height: 1;
+    top    = pCur->dimResult.top; 
+    left   = pCur->dimResult.left;
   } else {
     pTmpImageData = NULL;
     width         = imageWidth;
@@ -365,6 +377,7 @@ static void copyFrameConfig(CGIF_FrameConfig* pDest, CGIF_FrameConfig* pSrc) {
 
 /* queue a new GIF frame */
 int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
+  DimResult   dimInfo = {0};
   CGIF_Frame* pNewFrame;
   int         hasAlpha, hasSetTransp;
   int         i;
@@ -396,17 +409,10 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
 
   // if frame matches previous frame, drop it completely and sum the frame delay
   if (pGIF->aFrames[1] != NULL) {
-    uint32_t frameDelay = pConfig->delay + pGIF->aFrames[1]->config.delay;
+    const uint32_t frameDelay = pConfig->delay + pGIF->aFrames[1]->config.delay;
+    dimInfo = getChangeRect(pGIF, pConfig, &pGIF->aFrames[1]->config);
     if (frameDelay <= 0xFFFF && !(pGIF->config.genFlags & CGIF_GEN_KEEP_IDENT_FRAMES)) {
-      int sameFrame = 1;
-      for(i=0; i < pGIF->config.width * pGIF->config.height; i++) {
-        if(cmpPixel(pGIF, pConfig, &pGIF->aFrames[1]->config, pConfig->pImageData[i], pGIF->aFrames[1]->config.pImageData[i])) {
-          sameFrame = 0;
-          break;
-        }
-      }
-
-      if (sameFrame) {
+      if (!dimInfo.width && !dimInfo.height) {
         pGIF->aFrames[1]->config.delay = frameDelay;
         return CGIF_OK;
       }
@@ -443,6 +449,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   }
   pNewFrame->disposalMethod        = DISPOSAL_METHOD_LEAVE;
   pNewFrame->transIndex            = 0;
+  pNewFrame->dimResult             = dimInfo;
   pGIF->aFrames[i]                 = pNewFrame; // add frame to queue
   // check whether we need to adapt the disposal method of the frame before.
   if(pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY) {
