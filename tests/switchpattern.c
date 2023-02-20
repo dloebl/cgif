@@ -25,7 +25,7 @@ static void initFrameConfig(CGIF_FrameConfig* pConfig, uint8_t* pImageData, uint
   pConfig->genFlags = CGIF_FRAME_GEN_USE_TRANSPARENCY | CGIF_FRAME_GEN_USE_DIFF_WINDOW; // use optimizations
 }
 
-/* This is an example code that creates a GIF-animation with a moving snake. */
+/* This is a test that creates a GIF-animation with alternating colors. */
 int main(void) {
   CGIF*        pGIF;                                                      // struct containing the GIF
   CGIF_Config    gConfig;                                                  // global configuration parameters for the GIF
