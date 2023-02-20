@@ -422,7 +422,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   if(i == SIZE_FRAME_QUEUE) {
     r = flushFrame(pGIF, pGIF->aFrames[1], pGIF->aFrames[0]);
     freeFrame(pGIF->aFrames[0]);
-    pGIF->aFrames[0] = NULL;
+    pGIF->aFrames[0] = NULL; // avoid potential double free in cgif_close
     // check for errors
     if(r != CGIF_OK) {
       pGIF->curResult = r;
@@ -507,7 +507,7 @@ CGIF_CLOSE_Cleanup:
       pGIF->curResult = CGIF_ECLOSE; // error: fclose failed
     }
   }
-  for(int i = 0; i < 3; ++i) {
+  for(int i = 0; i < SIZE_FRAME_QUEUE; ++i) {
     freeFrame(pGIF->aFrames[i]);
   }
 
