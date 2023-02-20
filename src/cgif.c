@@ -25,6 +25,7 @@ struct st_gif {
   CGIFRaw*           pGIFRaw;                   // (internal) raw GIF stream
   FILE*              pFile;
   cgif_result        curResult;
+  int                iHEAD;                     // (internal) index to current HEAD frame in aFrames queue
 };
 
 // dimension result type
@@ -96,6 +97,7 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
 
   memset(pGIF, 0, sizeof(CGIF));
   pGIF->pFile = pFile;
+  pGIF->iHEAD = 1;
   memcpy(&(pGIF->config), pConfig, sizeof(CGIF_Config));
   // make a deep copy of global color tabele (GCT), if required.
   if((pConfig->attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
@@ -395,32 +397,32 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   }
 
   // if frame matches previous frame, drop it completely and sum the frame delay
-  if (pGIF->aFrames[1] != NULL) {
-    uint32_t frameDelay = pConfig->delay + pGIF->aFrames[1]->config.delay;
-    if (frameDelay <= 0xFFFF && !(pGIF->config.genFlags & CGIF_GEN_KEEP_IDENT_FRAMES)) {
+  if(pGIF->aFrames[pGIF->iHEAD] != NULL) {
+    const uint32_t frameDelay = pConfig->delay + pGIF->aFrames[pGIF->iHEAD]->config.delay;
+    if(frameDelay <= 0xFFFF && !(pGIF->config.genFlags & CGIF_GEN_KEEP_IDENT_FRAMES)) {
       int sameFrame = 1;
-      for(i=0; i < pGIF->config.width * pGIF->config.height; i++) {
-        if(cmpPixel(pGIF, pConfig, &pGIF->aFrames[1]->config, pConfig->pImageData[i], pGIF->aFrames[1]->config.pImageData[i])) {
+      for(i = 0; i < pGIF->config.width * pGIF->config.height; i++) {
+        if(cmpPixel(pGIF, pConfig, &pGIF->aFrames[pGIF->iHEAD]->config, pConfig->pImageData[i], pGIF->aFrames[pGIF->iHEAD]->config.pImageData[i])) {
           sameFrame = 0;
           break;
         }
       }
 
       if (sameFrame) {
-        pGIF->aFrames[1]->config.delay = frameDelay;
+        pGIF->aFrames[pGIF->iHEAD]->config.delay = frameDelay;
         return CGIF_OK;
       }
     }
   }
 
   // search for free slot in frame queue
-  for(i = 1; i < SIZE_FRAME_QUEUE && pGIF->aFrames[i] != NULL; ++i);
+  for(i = pGIF->iHEAD; i < SIZE_FRAME_QUEUE && pGIF->aFrames[i] != NULL; ++i);
   // check whether the queue is full
   // when queue is full: we need to flush one frame.
   if(i == SIZE_FRAME_QUEUE) {
     r = flushFrame(pGIF, pGIF->aFrames[1], pGIF->aFrames[0]);
     freeFrame(pGIF->aFrames[0]);
-    pGIF->aFrames[0] = NULL;
+    pGIF->aFrames[0] = NULL; // avoid potential double free in cgif_close
     // check for errors
     if(r != CGIF_OK) {
       pGIF->curResult = r;
@@ -444,6 +446,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   pNewFrame->disposalMethod        = DISPOSAL_METHOD_LEAVE;
   pNewFrame->transIndex            = 0;
   pGIF->aFrames[i]                 = pNewFrame; // add frame to queue
+  pGIF->iHEAD                      = i;         // update HEAD index
   // check whether we need to adapt the disposal method of the frame before.
   if(pGIF->config.attrFlags & CGIF_ATTR_HAS_TRANSPARENCY) {
     pGIF->aFrames[i]->disposalMethod = DISPOSAL_METHOD_BACKGROUND; // TBD might be removed
@@ -504,7 +507,7 @@ CGIF_CLOSE_Cleanup:
       pGIF->curResult = CGIF_ECLOSE; // error: fclose failed
     }
   }
-  for(int i = 0; i < 3; ++i) {
+  for(int i = 0; i < SIZE_FRAME_QUEUE; ++i) {
     freeFrame(pGIF->aFrames[i]);
   }
 
