@@ -565,8 +565,12 @@ cgif_result cgif_raw_addframe(CGIFRaw* pGIF, const CGIFRaw_FrameConfig* pConfig)
     return r;
   }
 
+  const uint8_t initialCodeSize = initCodeLen - 1;
+  // check whether the Graphic Control Extension is required or not:
+  // It's required for animations and frames with transparency.
+  int needsGraphicCtrlExt = (pGIF->config.attrFlags & CGIF_RAW_ATTR_IS_ANIMATED) | (pConfig->attrFlags & CGIF_RAW_FRAME_ATTR_HAS_TRANS);
   // do things for animation / transparency, if required.
-  if(pGIF->config.attrFlags & CGIF_RAW_ATTR_IS_ANIMATED) {
+  if(needsGraphicCtrlExt) {
     memset(aGraphicExt, 0, SIZE_GRAPHIC_EXT);
     aGraphicExt[0] = 0x21;
     aGraphicExt[1] = 0xF9;
@@ -580,13 +584,11 @@ cgif_result cgif_raw_addframe(CGIFRaw* pGIF, const CGIFRaw_FrameConfig* pConfig)
     // set delay (LE ordering)
     const uint16_t delayLE = hU16toLE(pConfig->delay);
     memcpy(aGraphicExt + GEXT_OFFSET_DELAY, &delayLE, sizeof(uint16_t));
+    // write Graphic Control Extension
+    rWrite |= pGIF->config.pWriteFn(pGIF->config.pContext, aGraphicExt, SIZE_GRAPHIC_EXT);
   }
 
   // write frame
-  const uint8_t initialCodeSize = initCodeLen - 1;
-  if(pGIF->config.attrFlags & CGIF_RAW_ATTR_IS_ANIMATED) {
-    rWrite |= pGIF->config.pWriteFn(pGIF->config.pContext, aGraphicExt, SIZE_GRAPHIC_EXT);
-  }
   rWrite |= pGIF->config.pWriteFn(pGIF->config.pContext, aFrameHeader, SIZE_FRAME_HEADER);
   if(useLCT) {
     rWrite |= pGIF->config.pWriteFn(pGIF->config.pContext, pConfig->pLCT, pConfig->sizeLCT * 3);
