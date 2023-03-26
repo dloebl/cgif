@@ -38,6 +38,7 @@ tests = [
   { 'name' : 'overlap_everything',                 'seed_should_fail' : false},
   { 'name' : 'overlap_everything_only_trans',      'seed_should_fail' : false},
   { 'name' : 'overlap_some_rows',                  'seed_should_fail' : false},
+  { 'name' : 'single_frame_alpha',                 'seed_should_fail' : false},
   { 'name' : 'stripe_pattern_interlaced',          'seed_should_fail' : false},
   { 'name' : 'switchpattern',                      'seed_should_fail' : false},
   { 'name' : 'trans_inc_initdict',                 'seed_should_fail' : false},

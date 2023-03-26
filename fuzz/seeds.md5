@@ -11,7 +11,11 @@ fdae5756b1b807a17e53981ed8426265  duplicate_frames.seed
 f715df62ce010400b45c8390f7a0d7d2  earlyclose.seed
 bd190d8bf4593e52a12c676883344ece  eindex_anim.seed
 0ce95a93c456402d2ebbf45a5cf97f5c  eindex.seed
+5b1be0065462dd6eef37f12c2f925726  enopalette.seed
 464c002f693d92ceb6d563a3d311ab8c  ewrite.seed
+15f002ddcbb97d4925ca1f0b487846ac  ezeroheight.seed
+7a28c753e37ecd51bbda7373b1ce6957  ezerowidthheight.seed
+f05b915115a7415612f6f49ca584a16d  ezerowidth.seed
 72016c39357f0f537ec1f9781aa5c113  global_plus_local_table.seed
 af5b1905892c651b12a54249b1cc223e  global_plus_local_table_with_optim.seed
 f995725c6e8ef70707f0a7c21fdbe2fd  has_transparency_2.seed
@@ -30,7 +34,9 @@ af137262379b55c94306fd2f8ad1b89d  more_than_256_colors.seed
 d1dc83612bb62980c4c7a63bd0802cc6  overlap_everything_only_trans.seed
 207b5d6928ded8bdea9b3509c6d44c8b  overlap_everything.seed
 9ebff14069677230197ceeea66910f50  overlap_some_rows.seed
+9d2b6c0e5c7fb108f026064996313307  single_frame_alpha.seed
 b77b115cb1876f1bffff47c93c574b1b  stripe_pattern_interlaced.seed
+7c2a160987b6a0ec807d757004cfdddd  switchpattern.seed
 261fb31b5dce05c027ff88afaa511ceb  trans_inc_initdict.seed
 7ba7d70015744018f185fe46df7b3c3c  user_trans.seed
 464c002f693d92ceb6d563a3d311ab8c  write_fn.seed
