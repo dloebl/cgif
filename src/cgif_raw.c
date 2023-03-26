@@ -513,6 +513,7 @@ cgif_result cgif_raw_addframe(CGIFRaw* pGIF, const CGIFRaw_FrameConfig* pConfig)
   // calculate initial code length and initial dict length
   initCodeLen = calcInitCodeLen(numEffColors);
   initDictLen = 1uL << (initCodeLen - 1);
+  const uint8_t initialCodeSize = initCodeLen - 1;
 
   const uint16_t frameWidthLE  = hU16toLE(pConfig->width);
   const uint16_t frameHeightLE = hU16toLE(pConfig->height);
@@ -565,7 +566,6 @@ cgif_result cgif_raw_addframe(CGIFRaw* pGIF, const CGIFRaw_FrameConfig* pConfig)
     return r;
   }
 
-  const uint8_t initialCodeSize = initCodeLen - 1;
   // check whether the Graphic Control Extension is required or not:
   // It's required for animations and frames with transparency.
   int needsGraphicCtrlExt = (pGIF->config.attrFlags & CGIF_RAW_ATTR_IS_ANIMATED) | (pConfig->attrFlags & CGIF_RAW_FRAME_ATTR_HAS_TRANS);
