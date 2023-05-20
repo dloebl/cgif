@@ -1,7 +1,7 @@
 project(
   'libcgif',
   'c',
-  version : '0.3.1',
+  version : '0.3.2',
   license : 'MIT',
   default_options : ['c_std=c99'],
 )
@@ -12,7 +12,7 @@ lib = library(
   cgif_sources,
   include_directories : ['inc/'],
   soversion : '0',
-  version : '0.3.0',
+  version : '0.3.2',
   install : true,
 )
 
