@@ -1,4 +1,4 @@
-# TBD: replace with custom python zip tool (just like scripts/md5sum.py)
+# TBD: replace with custom python zip tool (just like scripts/sha256sum.py)
 # TBD: allow to generate the seed corpus without having to invoke all unit tests.
 zip = find_program('zip', required : false)
 foreach t : tests
@@ -9,8 +9,8 @@ foreach t : tests
   test('generate ' + name + '.seed', exe, workdir : join_paths(meson.build_root(), 'fuzz'), priority : -2, should_fail : t.get('seed_should_fail'))
 endforeach
 # get the ordering right:
-# md5sum check on fuzz seed corpus should be run once all of the above tests are done.
-test('check fuzz seed checksums', md5sumc, args : [join_paths(meson.source_root(), 'fuzz/seeds.md5')], workdir : join_paths(meson.build_root(), 'fuzz'), priority : -3, is_parallel : false)
+# sha256sum check on fuzz seed corpus should be run once all of the above tests are done.
+test('check fuzz seed checksums', sha256sumc, args : [join_paths(meson.source_root(), 'fuzz/seeds.sha256')], workdir : join_paths(meson.build_root(), 'fuzz'), priority : -3, is_parallel : false)
 
 src = ['cgif_fuzzer_standalone.c', 'cgif_fuzzer.c']
 exe = executable(
