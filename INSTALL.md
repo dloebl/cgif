@@ -3,6 +3,13 @@ cgif is packaged for [Homebrew](https://formulae.brew.sh/formula/cgif) and sever
   
 [![Packaging status](https://repology.org/badge/vertical-allrepos/cgif.svg)](https://repology.org/project/cgif/versions)
 
+## Ubuntu >= 22.04
+`sudo apt-get install libcgif0`
+
+for development files
+
+`sudo apt-get install libcgif-dev`
+
 ## Homebrew
 `$ brew install cgif`
    
