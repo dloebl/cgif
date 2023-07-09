@@ -24,11 +24,15 @@ import('pkgconfig').generate(
   description : 'A fast and lightweight GIF encoder',
 )
 
+libcgif_dep = declare_dependency(link_with : lib)
+
 if get_option('tests') and not meson.is_cross_build()
-  libcgif_dep = declare_dependency(link_with : lib)
-  subdir('examples')
   subdir('tests')
   if get_option('fuzzer')
     subdir('fuzz')
   endif
+endif
+
+if get_option('examples')
+  subdir('examples')
 endif

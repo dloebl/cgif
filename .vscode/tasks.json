@@ -7,10 +7,13 @@
         "command": "meson",
         "args":
             ["setup",
+	    "--prefix=${workspaceFolder}/.debug_usr/",
             "--reconfigure",
             "--buildtype",
             "debug",
-            "-Dtests=true",
+	    "-Dexamples=true",
+	    "-Dinstall_examples=true",
+            "-Dtests=false",
             ".debug_build/"],
         "type": "shell"
     },
@@ -18,7 +21,7 @@
         "label": "debug_build",
         "command": "meson",
         "args":
-            ["compile",
+            ["install",
             "-C",
             ".debug_build/"],
         "type": "shell",

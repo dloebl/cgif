@@ -8,7 +8,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug example",
-            "program": "${workspaceFolder}/.debug_build/examples/ex_cgif_example",
+            "program": "${workspaceFolder}/.debug_usr/bin/cgif_example",
             "preLaunchTask": "debug_build",
             "args": [],
             "cwd": "${workspaceFolder}"
@@ -17,7 +17,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug example animation",
-            "program": "${workspaceFolder}/.debug_build/examples/ex_cgif_example_video",
+            "program": "${workspaceFolder}/.debug_usr/bin/cgif_example_video",
             "preLaunchTask": "debug_build",
             "args": [],
             "cwd": "${workspaceFolder}"
