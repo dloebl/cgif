@@ -9,6 +9,7 @@
             ["setup",
 	    "--prefix=${workspaceFolder}/.debug_usr/",
             "--reconfigure",
+	    "-Ddefault_library=static",
             "--buildtype",
             "debug",
 	    "-Dexamples=true",
