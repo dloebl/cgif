@@ -13,15 +13,16 @@ option(
 )
 
 option(
-  'install_examples',
-  type : 'boolean',
-  value : false,
-  description : 'install examples',
-)
-
-option(
   'tests',
   type : 'boolean',
   value : true,
   description : 'build tests',
+)
+
+# for debugging purposes
+option(
+  'install_examples',
+  type : 'boolean',
+  value : false,
+  description : 'install examples',
 )
