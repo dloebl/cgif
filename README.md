@@ -68,6 +68,9 @@ Releases of cgif follow the semantic versioning scheme as described here: [semve
 The following additional guarantees are provided:
 * Public API of versions 0.x.x are stable.
 
+## Debugging
+There is a Visual Studio Code debug configuration with launch targets for the two examples. You need to install the C/C++ extension and a LLDB extension (debugger) to debug cgif.
+
 ## License
 Licensed under the MIT license (permissive).
 For more details please see ```LICENSE```
