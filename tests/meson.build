@@ -55,6 +55,7 @@ tests_rgb = [
   { 'name' : 'rgb_256digit',                       'seed_should_fail' : false},
   { 'name' : 'rgb_interlaced',                     'seed_should_fail' : false},
   { 'name' : 'rgb_single_color',                   'seed_should_fail' : false},
+  { 'name' : 'rgb_no_dithering',                   'seed_should_fail' : false},
   { 'name' : 'rgb_noise',                          'seed_should_fail' : false},
   { 'name' : 'rgb_noise_animated',                 'seed_should_fail' : false},
 ]

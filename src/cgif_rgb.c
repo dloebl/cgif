@@ -568,7 +568,8 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
   }
 
   colHashTable* colhash = get_color_histogram(pConfig->pImageData, numPixel, pConfig->fmtChan, &hasAlpha);
-  const int sizeLCT = quantize_and_dither(colhash, pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, 1, hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
+  const uint8_t bDither = !(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_NO_DITHERING);
+  const int sizeLCT = quantize_and_dither(colhash, pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, bDither, hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
   free_col_hash_table(colhash);
 
   fConfig.numLocalPaletteEntries = sizeLCT;
