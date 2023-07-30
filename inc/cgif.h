@@ -26,6 +26,8 @@ extern "C" {
 
 #define CGIF_INFINITE_LOOP               (0x0000uL)       // for animated GIF: 0 specifies infinite loop
 
+#define CGIF_RGB_FRAME_ATTR_INTERLACED   (1ul << 0)       // encode frame interlaced (default is not interlaced)
+
 typedef enum {
   CGIF_ERROR = -1, // something unspecified failed
   CGIF_OK    =  0, // everything OK

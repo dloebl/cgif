@@ -563,6 +563,9 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
   fConfig.pImageData    = malloc(pGIF->config.width * (uint32_t)pGIF->config.height);
   fConfig.delay         = pConfig->delay;
   fConfig.attrFlags     = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
+  if(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_INTERLACED) {
+    fConfig.attrFlags |= CGIF_FRAME_ATTR_INTERLACED;
+  }
 
   colHashTable* colhash = get_color_histogram(pConfig->pImageData, numPixel, pConfig->fmtChan, &hasAlpha);
   const int sizeLCT = quantize_and_dither(colhash, pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, 1, hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
