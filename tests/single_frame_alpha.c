@@ -5,8 +5,8 @@
 
 #include "cgif.h"
 
-#define WIDTH  100
-#define HEIGHT 100
+#define WIDTH 1
+#define HEIGHT 1
 
 int main(void) {
   CGIF*          pGIF;
@@ -14,20 +14,17 @@ int main(void) {
   CGIF_FrameConfig   fConfig;
   uint8_t*      pImageData;
   uint8_t       aPalette[] = {
-    0x00, 0xFF, 0x00, // green
     0xFF, 0xFF, 0xFF, // white
   };
   cgif_result r;
 
   memset(&gConfig, 0, sizeof(CGIF_Config));
   memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
-  gConfig.attrFlags               = CGIF_ATTR_IS_ANIMATED;
-  gConfig.genFlags                = CGIF_GEN_KEEP_IDENT_FRAMES;
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
-  gConfig.numGlobalPaletteEntries = 2;
-  gConfig.path                    = "user_trans.gif";
+  gConfig.numGlobalPaletteEntries = 1;
+  gConfig.path                    = "single_frame_alpha.gif";
   //
   // create new GIF
   pGIF = cgif_newgif(&gConfig);
@@ -38,19 +35,11 @@ int main(void) {
   //
   // add frames to GIF
   pImageData = malloc(WIDTH * HEIGHT);
-  memset(pImageData, 0, WIDTH * HEIGHT);
+  memset(pImageData, 1, WIDTH * HEIGHT); // set all transparent
   fConfig.pImageData = pImageData;
-  fConfig.delay      = 100;
-  // create an off/on pattern
-  for (int i = 0; i < (WIDTH * HEIGHT); ++i) {
-    pImageData[i] = i % 2;
-  }
+  fConfig.attrFlags = CGIF_FRAME_ATTR_HAS_ALPHA;
+  fConfig.transIndex = 1;
   cgif_addframe(pGIF, &fConfig);
-  // set everything to transparent (frame from before shines through)
-  memset(pImageData, 2, WIDTH * HEIGHT);
-  fConfig.attrFlags  = CGIF_FRAME_ATTR_HAS_SET_TRANS;
-  fConfig.transIndex = 2;
-  r = cgif_addframe(pGIF, &fConfig);
   free(pImageData);
   //
   // write GIF to file

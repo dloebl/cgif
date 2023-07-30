@@ -27,6 +27,7 @@ int main(void) {
   memset(&gConfig, 0, sizeof(CGIF_Config));
   memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
   gConfig.attrFlags               = CGIF_ATTR_IS_ANIMATED;
+  gConfig.genFlags                = CGIF_GEN_KEEP_IDENT_FRAMES;
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
@@ -41,7 +42,7 @@ int main(void) {
   // Add frames to GIF
   //
   pImageData = malloc(WIDTH * HEIGHT);         // Actual image data
-  memset(pImageData, 0, WIDTH * HEIGHT); 
+  memset(pImageData, 0, WIDTH * HEIGHT);
   fConfig.pImageData = pImageData;
   fConfig.delay      = 100;  // set time before next frame (in units of 0.01 s)
   fConfig.genFlags   = CGIF_FRAME_GEN_USE_DIFF_WINDOW;

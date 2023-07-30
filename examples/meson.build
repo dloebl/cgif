@@ -3,12 +3,17 @@ examples = [
   'cgif_example_video',
 ]
 
+b_install_examples = get_option('install_examples')
+
 foreach e : examples
   ex_exe = executable(
-    'ex_' + e,
+    e,
     e + '.c',
     dependencies : [libcgif_dep],
     include_directories : ['../inc/'],
+    install : b_install_examples,
   )
-  test(e, ex_exe)
+  if get_option('tests') and not meson.is_cross_build()
+    test(e, ex_exe)
+  endif
 endforeach

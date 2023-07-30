@@ -1,7 +1,7 @@
 project(
   'libcgif',
   'c',
-  version : '0.3.0',
+  version : '0.4.0',
   license : 'MIT',
   default_options : ['c_std=c99'],
 )
@@ -16,7 +16,7 @@ lib = library(
   dependencies : m_dep,
   include_directories : ['inc/'],
   soversion : '0',
-  version : '0.3.0',
+  version : meson.project_version(),
   install : true,
 )
 
@@ -28,11 +28,15 @@ import('pkgconfig').generate(
   description : 'A fast and lightweight GIF encoder',
 )
 
+libcgif_dep = declare_dependency(link_with : lib)
+
 if get_option('tests') and not meson.is_cross_build()
-  libcgif_dep = declare_dependency(link_with : lib)
-  subdir('examples')
   subdir('tests')
   if get_option('fuzzer')
     subdir('fuzz')
   endif
+endif
+
+if get_option('examples')
+  subdir('examples')
 endif
