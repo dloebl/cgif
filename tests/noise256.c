@@ -10,6 +10,8 @@
 
 static uint64_t seed;
 
+// unsigned integer overflow expected
+__attribute__((no_sanitize("integer")))
 int psdrand(void) {
   // simple pseudo random function from musl libc
   seed = 6364136223846793005ULL * seed + 1;
