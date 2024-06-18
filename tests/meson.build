@@ -30,6 +30,7 @@ tests = [
   { 'name' : 'min_size',                           'seed_should_fail' : false},
   { 'name' : 'more_than_256_colors',               'seed_should_fail' : false},
   { 'name' : 'noise256',                           'seed_should_fail' : false},
+  { 'name' : 'noise256_large',                     'seed_should_fail' : false},
   { 'name' : 'noise6',                             'seed_should_fail' : false},
   { 'name' : 'noise6_interlaced',                  'seed_should_fail' : false},
   { 'name' : 'noloop',                             'seed_should_fail' : false},
