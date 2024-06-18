@@ -1,7 +1,7 @@
 project(
   'libcgif',
   'c',
-  version : '0.4.0',
+  version : '0.4.1',
   license : 'MIT',
   default_options : ['c_std=c99'],
 )
