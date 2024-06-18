@@ -4,19 +4,34 @@ on:
   - pull_request
 jobs:
   build:
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os:
-          - ubuntu-22.04
-          - macos-12
-          - windows-2022
+        include:
+          - name: "Linux x64 (Ubuntu 22.04)"
+            os: ubuntu-22.04
+            config: {}
+          - name: "Linux 32-bit (Ubuntu 22.04)"
+            os: ubuntu-22.04
+            config: { cflags: "-m32"}
+          - name: "macOS 12"
+            os: macos-12
+            config: {}
+          - name: "Windows 2022"
+            os: windows-2022
+            config: {}
+    env:
+      CFLAGS: ${{ matrix.config.cflags }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
       - name: Dependencies (ubuntu)
         if: contains(matrix.os, 'ubuntu')
         run: sudo apt update && sudo apt install -y gifsicle valgrind meson
+      - name: Dependencies (ubuntu 32-bit)
+        if: contains(matrix.name, '32-bit')
+        run: sudo apt update && sudo apt install -y gcc-multilib
       - name: Dependencies (macos)
         if: contains(matrix.os, 'macos')
         run: brew install gifsicle meson
@@ -33,9 +48,9 @@ jobs:
         run: for f in build/*.gif; do gifsicle --no-ignore-errors --info $f || exit 1; done
         shell: bash
       - name: Valgrind
-        if: contains(matrix.os, 'ubuntu')
+        if: contains(matrix.name, 'Linux x64')
         run: meson test -C build --list | grep -v zip | grep -v checksums | sed 's/^/"/;s/$/"/' | xargs meson test -C build/ --wrap "valgrind --memcheck:leak-check=full --memcheck:show-leak-kinds=definite --memcheck:error-exitcode=1"
         shell: bash
       - name: Valgrind output
-        if: contains(matrix.os, 'ubuntu')
+        if: contains(matrix.name, 'Linux x64')
         run: cat build/meson-logs/testlog-valgrind.txt
