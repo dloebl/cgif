@@ -495,10 +495,16 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     const uint32_t frameDelay = pConfig->delay + pGIF->aFrames[pGIF->iHEAD]->config.delay;
     if(frameDelay <= 0xFFFF && !(pGIF->config.genFlags & CGIF_GEN_KEEP_IDENT_FRAMES)) {
       int sameFrame = 1;
-      for(i = 0; i < pGIF->config.width * pGIF->config.height; i++) {
-        if(cmpPixel(pGIF, pConfig, &pGIF->aFrames[pGIF->iHEAD]->config, pConfig->pImageData[i], pGIF->aFrames[pGIF->iHEAD]->config.pImageData[i])) {
+      if ((pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0 && (pGIF->aFrames[pGIF->iHEAD]->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0) {
+        if (memcmp(pConfig->pImageData, pGIF->aFrames[pGIF->iHEAD]->config.pImageData, pGIF->config.width * pGIF->config.height)) {
           sameFrame = 0;
-          break;
+        }
+      } else {
+        for(i = 0; i < pGIF->config.width * pGIF->config.height; i++) {
+          if(cmpPixel(pGIF, pConfig, &pGIF->aFrames[pGIF->iHEAD]->config, pConfig->pImageData[i], pGIF->aFrames[pGIF->iHEAD]->config.pImageData[i])) {
+            sameFrame = 0;
+            break;
+          }
         }
       }
 
