@@ -155,9 +155,8 @@ static int cmpPixel(const CGIF* pGIF, const CGIF_FrameConfig* pCur, const CGIF_F
   return memcmp(pBefCT + iBef * 3, pCurCT + iCur * 3, 3);
 }
 
-/* optimize GIF file size by only redrawing the rectangular area that differs from previous frame */
-static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult* pResult) {
-  uint8_t* pNewImageData;
+// compare given frames; returns 0 if frames are equal and 1 if they differ. If they differ, pResult returns area of difference
+static int getDiffArea(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult *pResult) {
   const uint8_t* pCurImageData;
   const uint8_t* pBefImageData;
   uint16_t       i, x;
@@ -181,13 +180,8 @@ static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fram
     ++i;
   }
 FoundTop:
-  if(i == height) { // need dummy pixel (frame is identical with one before)
-    // TBD we might make it possible to merge identical frames in the future
-    newWidth  = 1;
-    newHeight = 1;
-    newLeft   = 0;
-    newTop    = 0;
-    goto Done;
+  if(i == height) {
+    return 0;
   }
   newTop = i;
 
@@ -212,7 +206,7 @@ FoundHeight:
   while(cmpPixel(pGIF, pCur, pBef, pCurImageData[MULU16(i, width) + x], pBefImageData[MULU16(i, width) + x]) == 0) {
     ++i;
     if(i > (newTop + newHeight - 1)) {
-      ++x; //(x==width cannot happen as goto Done is triggered in the only possible case before)
+      ++x; //(x==width cannot happen as return 0 is trigged in the only possible case before)
       i = newTop;
     }
   }
@@ -224,25 +218,40 @@ FoundHeight:
   while(cmpPixel(pGIF, pCur, pBef, pCurImageData[MULU16(i, width) + x], pBefImageData[MULU16(i, width) + x]) == 0) {
     ++i;
     if(i > (newTop + newHeight - 1)) {
-      --x; //(x<newLeft cannot happen as goto Done is triggered in the only possible case before)
+      --x; //(x<newLeft cannot happen as return 0 is trigged in the only possible case before)
       i = newTop;
     }
   }
   newWidth = (x + 1) - newLeft;
 
-Done:
-
-  // create new image data
-  pNewImageData = malloc(MULU16(newWidth, newHeight)); // TBD check return value of malloc
-  for (i = 0; i < newHeight; ++i) {
-    memcpy(pNewImageData + MULU16(i, newWidth), pCurImageData + MULU16((i + newTop), width) + newLeft, newWidth);
-  }
-
-  // set new width, height, top, left in DimResult struct
   pResult->width  = newWidth;
   pResult->height = newHeight;
   pResult->top    = newTop;
   pResult->left   = newLeft;
+  return 1;
+}
+
+/* optimize GIF file size by only redrawing the rectangular area that differs from previous frame */
+static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult* pResult) {
+  uint16_t i;
+  uint8_t* pNewImageData;
+  const uint16_t width  = pGIF->config.width;
+  const uint8_t* pCurImageData = pCur->pImageData;
+
+  if (getDiffArea(pGIF, pCur, pBef, pResult) == 0) { // need dummy pixel (frame is identical with one before)
+    // TBD we might make it possible to merge identical frames in the future
+    pResult->width  = 1;
+    pResult->height = 1;
+    pResult->left   = 0;
+    pResult->top    = 0;
+  }
+
+  // create new image data
+  pNewImageData = malloc(MULU16(pResult->width, pResult->height)); // TBD check return value of malloc
+  for (i = 0; i < pResult->height; ++i) {
+    memcpy(pNewImageData + MULU16(i, pResult->width), pCurImageData + MULU16((i + pResult->top), width) + pResult->left, pResult->width);
+  }
+
   return pNewImageData;
 }
 
