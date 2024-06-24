@@ -231,14 +231,99 @@ FoundHeight:
   return 1;
 }
 
+// compare given global palette frames; returns 0 if frames are equal and 1 if they differ. If they differ, pResult returns area of difference
+static int getDiffAreaGlobalPalette(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult *pResult) {
+  const uint8_t* pCurImageData;
+  const uint8_t* pBefImageData;
+  uint16_t       i, x;
+  uint16_t       newHeight, newWidth, newLeft, newTop;
+  const uint16_t width  = pGIF->config.width;
+  const uint16_t height = pGIF->config.height;
+  size_t offset;
+
+  pCurImageData = pCur->pImageData;
+  pBefImageData = pBef->pImageData;
+  // find top
+  i = 0;
+  offset = 0;
+  while(i < height) {
+    if (memcmp(pCurImageData + offset, pBefImageData + offset, width)) {
+      break;
+    }
+    ++i;
+    offset += width;
+  }
+
+  if(i == height) {
+    return 0;
+  }
+  newTop = i;
+
+  // find actual height
+  i = height - 1;
+  offset = i * width;
+  while(i > newTop) {
+    if (memcmp(pCurImageData + offset, pBefImageData + offset, width)) {
+      break;
+    }
+    --i;
+    offset -= width;
+  }
+  newHeight = (i + 1) - newTop;
+
+  // find left
+  i = newTop;
+  x = 0;
+  offset = i * width;
+  while(pCurImageData[offset + x] == pBefImageData[offset + x]) {
+    ++i;
+    offset += width;
+    if(i > (newTop + newHeight - 1)) {
+      ++x; //(x==width cannot happen as return 0 is triggered in the only possible case before)
+      i = newTop;
+      offset = i * width;
+    }
+  }
+  newLeft = x;
+
+  // find actual width
+  i = newTop;
+  x = width - 1;
+  offset = i * width;
+  while(pCurImageData[offset + x] == pBefImageData[offset + x]) {
+    ++i;
+    offset += width;
+    if(i > (newTop + newHeight - 1)) {
+      --x; //(x<newLeft cannot happen as return 0 is triggered in the only possible case before)
+      i = newTop;
+      offset = i * width;
+    }
+  }
+  newWidth = (x + 1) - newLeft;
+
+  pResult->width  = newWidth;
+  pResult->height = newHeight;
+  pResult->top    = newTop;
+  pResult->left   = newLeft;
+  return 1;
+}
+
 /* optimize GIF file size by only redrawing the rectangular area that differs from previous frame */
 static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult* pResult) {
   uint16_t i;
   uint8_t* pNewImageData;
   const uint16_t width  = pGIF->config.width;
   const uint8_t* pCurImageData = pCur->pImageData;
+  int diffFrame;
 
-  if (getDiffArea(pGIF, pCur, pBef, pResult) == 0) { // need dummy pixel (frame is identical with one before)
+  if ((pBef->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0 && (pCur->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0) {
+    // Both frames use global palette; use fast comparison.
+    diffFrame = getDiffAreaGlobalPalette(pGIF, pCur, pBef, pResult);
+  } else {
+    diffFrame = getDiffArea(pGIF, pCur, pBef, pResult);
+  }
+
+  if (diffFrame == 0) { // need dummy pixel (frame is identical with one before)
     // TBD we might make it possible to merge identical frames in the future
     pResult->width  = 1;
     pResult->height = 1;
