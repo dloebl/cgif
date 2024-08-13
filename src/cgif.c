@@ -316,7 +316,8 @@ static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fram
   const uint8_t* pCurImageData = pCur->pImageData;
   int diffFrame;
 
-  if ((pBef->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0 && (pCur->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0) {
+  if ((pBef->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0 && (pCur->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0
+      && (pBef->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) == 0 && (pCur->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) == 0) {
     // Both frames use global palette; use fast comparison.
     diffFrame = getDiffAreaGlobalPalette(pGIF, pCur, pBef, pResult);
   } else {
@@ -495,7 +496,8 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     const uint32_t frameDelay = pConfig->delay + pGIF->aFrames[pGIF->iHEAD]->config.delay;
     if(frameDelay <= 0xFFFF && !(pGIF->config.genFlags & CGIF_GEN_KEEP_IDENT_FRAMES)) {
       int sameFrame = 1;
-      if ((pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0 && (pGIF->aFrames[pGIF->iHEAD]->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0) {
+      if ((pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0 && (pGIF->aFrames[pGIF->iHEAD]->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0
+          && (pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) == 0 && (pGIF->aFrames[pGIF->iHEAD]->config.attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) == 0) {
         if (memcmp(pConfig->pImageData, pGIF->aFrames[pGIF->iHEAD]->config.pImageData, pGIF->config.width * pGIF->config.height)) {
           sameFrame = 0;
         }
