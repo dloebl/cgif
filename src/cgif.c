@@ -155,9 +155,8 @@ static int cmpPixel(const CGIF* pGIF, const CGIF_FrameConfig* pCur, const CGIF_F
   return memcmp(pBefCT + iBef * 3, pCurCT + iCur * 3, 3);
 }
 
-/* optimize GIF file size by only redrawing the rectangular area that differs from previous frame */
-static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult* pResult) {
-  uint8_t* pNewImageData;
+// compare given frames; returns 0 if frames are equal and 1 if they differ. If they differ, pResult returns area of difference
+static int getDiffArea(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult *pResult) {
   const uint8_t* pCurImageData;
   const uint8_t* pBefImageData;
   uint16_t       i, x;
@@ -181,13 +180,8 @@ static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fram
     ++i;
   }
 FoundTop:
-  if(i == height) { // need dummy pixel (frame is identical with one before)
-    // TBD we might make it possible to merge identical frames in the future
-    newWidth  = 1;
-    newHeight = 1;
-    newLeft   = 0;
-    newTop    = 0;
-    goto Done;
+  if(i == height) {
+    return 0;
   }
   newTop = i;
 
@@ -212,7 +206,7 @@ FoundHeight:
   while(cmpPixel(pGIF, pCur, pBef, pCurImageData[MULU16(i, width) + x], pBefImageData[MULU16(i, width) + x]) == 0) {
     ++i;
     if(i > (newTop + newHeight - 1)) {
-      ++x; //(x==width cannot happen as goto Done is triggered in the only possible case before)
+      ++x; //(x==width cannot happen as return 0 is trigged in the only possible case before)
       i = newTop;
     }
   }
@@ -224,25 +218,126 @@ FoundHeight:
   while(cmpPixel(pGIF, pCur, pBef, pCurImageData[MULU16(i, width) + x], pBefImageData[MULU16(i, width) + x]) == 0) {
     ++i;
     if(i > (newTop + newHeight - 1)) {
-      --x; //(x<newLeft cannot happen as goto Done is triggered in the only possible case before)
+      --x; //(x<newLeft cannot happen as return 0 is trigged in the only possible case before)
       i = newTop;
     }
   }
   newWidth = (x + 1) - newLeft;
 
-Done:
-
-  // create new image data
-  pNewImageData = malloc(MULU16(newWidth, newHeight)); // TBD check return value of malloc
-  for (i = 0; i < newHeight; ++i) {
-    memcpy(pNewImageData + MULU16(i, newWidth), pCurImageData + MULU16((i + newTop), width) + newLeft, newWidth);
-  }
-
-  // set new width, height, top, left in DimResult struct
   pResult->width  = newWidth;
   pResult->height = newHeight;
   pResult->top    = newTop;
   pResult->left   = newLeft;
+  return 1;
+}
+
+// compare given global palette frames; returns 0 if frames are equal and 1 if they differ. If they differ, pResult returns area of difference
+static int getDiffAreaGlobalPalette(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult *pResult) {
+  const uint8_t* pCurImageData;
+  const uint8_t* pBefImageData;
+  uint16_t       i, x;
+  uint16_t       newHeight, newWidth, newLeft, newTop;
+  const uint16_t width  = pGIF->config.width;
+  const uint16_t height = pGIF->config.height;
+  size_t offset;
+
+  pCurImageData = pCur->pImageData;
+  pBefImageData = pBef->pImageData;
+  // find top
+  i = 0;
+  offset = 0;
+  while(i < height) {
+    if (memcmp(pCurImageData + offset, pBefImageData + offset, width)) {
+      break;
+    }
+    ++i;
+    offset += width;
+  }
+
+  if(i == height) {
+    return 0;
+  }
+  newTop = i;
+
+  // find actual height
+  i = height - 1;
+  offset = i * width;
+  while(i > newTop) {
+    if (memcmp(pCurImageData + offset, pBefImageData + offset, width)) {
+      break;
+    }
+    --i;
+    offset -= width;
+  }
+  newHeight = (i + 1) - newTop;
+
+  // find left
+  i = newTop;
+  x = 0;
+  offset = i * width;
+  while(pCurImageData[offset + x] == pBefImageData[offset + x]) {
+    ++i;
+    offset += width;
+    if(i > (newTop + newHeight - 1)) {
+      ++x; //(x==width cannot happen as return 0 is triggered in the only possible case before)
+      i = newTop;
+      offset = i * width;
+    }
+  }
+  newLeft = x;
+
+  // find actual width
+  i = newTop;
+  x = width - 1;
+  offset = i * width;
+  while(pCurImageData[offset + x] == pBefImageData[offset + x]) {
+    ++i;
+    offset += width;
+    if(i > (newTop + newHeight - 1)) {
+      --x; //(x<newLeft cannot happen as return 0 is triggered in the only possible case before)
+      i = newTop;
+      offset = i * width;
+    }
+  }
+  newWidth = (x + 1) - newLeft;
+
+  pResult->width  = newWidth;
+  pResult->height = newHeight;
+  pResult->top    = newTop;
+  pResult->left   = newLeft;
+  return 1;
+}
+
+/* optimize GIF file size by only redrawing the rectangular area that differs from previous frame */
+static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult* pResult) {
+  uint16_t i;
+  uint8_t* pNewImageData;
+  const uint16_t width  = pGIF->config.width;
+  const uint8_t* pCurImageData = pCur->pImageData;
+  int diffFrame;
+
+  if ((pBef->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0 && (pCur->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0
+      && (pBef->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) == 0 && (pCur->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) == 0) {
+    // Both frames use global palette; use fast comparison.
+    diffFrame = getDiffAreaGlobalPalette(pGIF, pCur, pBef, pResult);
+  } else {
+    diffFrame = getDiffArea(pGIF, pCur, pBef, pResult);
+  }
+
+  if (diffFrame == 0) { // need dummy pixel (frame is identical with one before)
+    // TBD we might make it possible to merge identical frames in the future
+    pResult->width  = 1;
+    pResult->height = 1;
+    pResult->left   = 0;
+    pResult->top    = 0;
+  }
+
+  // create new image data
+  pNewImageData = malloc(MULU16(pResult->width, pResult->height)); // TBD check return value of malloc
+  for (i = 0; i < pResult->height; ++i) {
+    memcpy(pNewImageData + MULU16(i, pResult->width), pCurImageData + MULU16((i + pResult->top), width) + pResult->left, pResult->width);
+  }
+
   return pNewImageData;
 }
 
@@ -401,10 +496,17 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     const uint32_t frameDelay = pConfig->delay + pGIF->aFrames[pGIF->iHEAD]->config.delay;
     if(frameDelay <= 0xFFFF && !(pGIF->config.genFlags & CGIF_GEN_KEEP_IDENT_FRAMES)) {
       int sameFrame = 1;
-      for(i = 0; i < pGIF->config.width * pGIF->config.height; i++) {
-        if(cmpPixel(pGIF, pConfig, &pGIF->aFrames[pGIF->iHEAD]->config, pConfig->pImageData[i], pGIF->aFrames[pGIF->iHEAD]->config.pImageData[i])) {
+      if ((pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0 && (pGIF->aFrames[pGIF->iHEAD]->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0
+          && (pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) == 0 && (pGIF->aFrames[pGIF->iHEAD]->config.attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) == 0) {
+        if (memcmp(pConfig->pImageData, pGIF->aFrames[pGIF->iHEAD]->config.pImageData, pGIF->config.width * pGIF->config.height)) {
           sameFrame = 0;
-          break;
+        }
+      } else {
+        for(i = 0; i < pGIF->config.width * pGIF->config.height; i++) {
+          if(cmpPixel(pGIF, pConfig, &pGIF->aFrames[pGIF->iHEAD]->config, pConfig->pImageData[i], pGIF->aFrames[pGIF->iHEAD]->config.pImageData[i])) {
+            sameFrame = 0;
+            break;
+          }
         }
       }
 

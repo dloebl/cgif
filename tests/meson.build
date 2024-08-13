@@ -43,6 +43,8 @@ tests = [
   { 'name' : 'stripe_pattern_interlaced',          'seed_should_fail' : false},
   { 'name' : 'switchpattern',                      'seed_should_fail' : false},
   { 'name' : 'trans_inc_initdict',                 'seed_should_fail' : false},
+  { 'name' : 'user_trans_diff_area',               'seed_should_fail' : false},
+  { 'name' : 'user_trans_merge',                   'seed_should_fail' : false},
   { 'name' : 'user_trans',                         'seed_should_fail' : false},
   { 'name' : 'write_fn',                           'seed_should_fail' : false},
 ]
