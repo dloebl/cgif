@@ -86,7 +86,6 @@ static int processInput(ByteStream* pStream) {
   CGIF_Config      gconfig;
   CGIF_FrameConfig fconfig;
   CGIF*            pGIF;
-  char*            sTmpName;
   size_t           sizeImageData;
   int              r;
 
@@ -100,12 +99,11 @@ static int processInput(ByteStream* pStream) {
     free(gconfig.pGlobalPalette);
     return -1;
   }
-  sTmpName = tmpnam(NULL);
-  gconfig.path = sTmpName; // write to temporary file
+  gconfig.path = "/tmp/out.gif"; // write to temporary file
   pGIF         = cgif_newgif(&gconfig);
   free(gconfig.pGlobalPalette);
   if(pGIF == NULL) {
-    unlink(sTmpName);
+    unlink("/tmp/out.gif");
     return -1;
   }
   r = read_frameconfig(pStream, &fconfig, sizeImageData);
@@ -116,7 +114,7 @@ static int processInput(ByteStream* pStream) {
     r = read_frameconfig(pStream, &fconfig, sizeImageData);
   }
   r = cgif_close(pGIF);
-  unlink(sTmpName);
+  unlink("/tmp/out.gif");
   return r;
 }
 
