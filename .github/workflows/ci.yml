@@ -15,8 +15,8 @@ jobs:
           - name: "Linux 32-bit (Ubuntu 22.04)"
             os: ubuntu-22.04
             config: { cflags: "-m32"}
-          - name: "macOS 12"
-            os: macos-12
+          - name: "macOS 14"
+            os: macos-14
             config: {}
           - name: "Windows 2022"
             os: windows-2022
