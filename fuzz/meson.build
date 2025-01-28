@@ -13,16 +13,25 @@ endforeach
 test('check fuzz seed checksums', sha256sumc, args : [join_paths(meson.source_root(), 'fuzz/seeds.sha256')], workdir : join_paths(meson.build_root(), 'fuzz'), priority : -3, is_parallel : false)
 
 src = ['cgif_fuzzer_standalone.c', 'cgif_fuzzer.c']
-exe = executable(
+exe_fuzzer = executable(
   'cgif_fuzzer_standalone',
   sources : src,
   dependencies : [libcgif_dep],
   include_directories : ['../inc'],
 )
-# test seed corpus with standalone fuzzer
+
+src = ['cgif_fuzzer_standalone.c', 'cgif_file_fuzzer.c']
+exe_file_fuzzer = executable(
+  'cgif_file_fuzzer_standalone',
+  sources : src,
+  dependencies : [libcgif_dep],
+  include_directories : ['../inc'],
+)
+# test seed corpus with standalone fuzzer and standalone file fuzzer
 foreach t : tests
   seedpath = t.get('name') + '.seed'
-  test('run cgif_fuzzer_standalone ' + seedpath, exe, args : seedpath, workdir : join_paths(meson.build_root(), 'fuzz'), priority : -4)
+  test('run cgif_fuzzer_standalone ' + seedpath, exe_fuzzer, args : seedpath, workdir : join_paths(meson.build_root(), 'fuzz'), priority : -4)
+  test('run cgif_file_fuzzer_standalone ' + seedpath, exe_file_fuzzer, args : seedpath, workdir : join_paths(meson.build_root(), 'fuzz'), priority : -4)
 endforeach
 
 # generate seed corpus zip archive, if possible
@@ -31,5 +40,6 @@ if zip.found()
   foreach t : tests
     seeds += t.get('name') + '.seed'
   endforeach
-  test('create fuzz seed corpus zip archive', zip, args : ['cgif_fuzzer_seed_corpus.zip', seeds], workdir : join_paths(meson.build_root(), 'fuzz'), priority : -4)
+  test('create fuzzer seed corpus zip archive', zip, args : ['cgif_fuzzer_seed_corpus.zip', seeds], workdir : join_paths(meson.build_root(), 'fuzz'), priority : -4)
+  test('create file fuzzer seed corpus zip archive', zip, args : ['cgif_file_fuzzer_seed_corpus.zip', seeds], workdir : join_paths(meson.build_root(), 'fuzz'), priority : -4)
 endif
