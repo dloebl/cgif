@@ -38,6 +38,7 @@ CGIF_ATTR_IS_ANIMATED              // make an animated GIF (default is non-anima
 CGIF_ATTR_NO_GLOBAL_TABLE          // disable global color table (global color table is default)
 CGIF_ATTR_HAS_TRANSPARENCY         // first entry in color table contains transparency (alpha channel)
 CGIF_ATTR_NO_LOOP                  // run GIF animation only one time. numLoops is ignored (no repetitions)
+CGIF_GEN_KEEP_IDENT_FRAMES         // keep frames that are identical to previous frame (default is to drop them)
 CGIF_FRAME_ATTR_USE_LOCAL_TABLE    // use a local color table for a frame (not used by default)
 CGIF_FRAME_ATTR_HAS_ALPHA          // frame contains alpha channel (index set via transIndex field)
 CGIF_FRAME_ATTR_HAS_SET_TRANS      // transparency setting provided by user (transIndex field)

@@ -32,6 +32,7 @@ tests_index = [
   { 'name' : 'min_size',                           'seed_should_fail' : false},
   { 'name' : 'more_than_256_colors',               'seed_should_fail' : false},
   { 'name' : 'noise256',                           'seed_should_fail' : false},
+  { 'name' : 'noise256_large',                     'seed_should_fail' : false},
   { 'name' : 'noise6',                             'seed_should_fail' : false},
   { 'name' : 'noise6_interlaced',                  'seed_should_fail' : false},
   { 'name' : 'noloop',                             'seed_should_fail' : false},
@@ -44,6 +45,8 @@ tests_index = [
   { 'name' : 'stripe_pattern_interlaced',          'seed_should_fail' : false},
   { 'name' : 'switchpattern',                      'seed_should_fail' : false},
   { 'name' : 'trans_inc_initdict',                 'seed_should_fail' : false},
+  { 'name' : 'user_trans_diff_area',               'seed_should_fail' : false},
+  { 'name' : 'user_trans_merge',                   'seed_should_fail' : false},
   { 'name' : 'user_trans',                         'seed_should_fail' : false},
   { 'name' : 'write_fn',                           'seed_should_fail' : false},
 ]
@@ -74,4 +77,4 @@ endforeach
 sha256sumc = find_program('scripts/sha256sum.py')
 # get the ordering right:
 # md5sum check on output GIFs should be run once all of the above tests are done.
-test('check test checksums', sha256sumc, args : [join_paths(meson.source_root(), 'tests/tests.sha256')], workdir : meson.build_root(), priority : -1, is_parallel : false)
+test('check test checksums', sha256sumc, args : [join_paths(meson.project_source_root(), 'tests/tests.sha256')], workdir : meson.project_build_root(), priority : -1, is_parallel : false)

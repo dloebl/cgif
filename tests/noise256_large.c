@@ -5,8 +5,8 @@
 
 #include "cgif.h"
 
-#define WIDTH  500
-#define HEIGHT 500
+#define WIDTH  3000
+#define HEIGHT 3000
 
 static uint64_t seed;
 
@@ -24,7 +24,7 @@ int main(void) {
   CGIF_FrameConfig   fConfig;
   uint8_t*      pImageData;
   cgif_result   r;
-  uint8_t       aPalette[256 * 3]; 
+  uint8_t       aPalette[256 * 3];
 
   seed = 22;
   for(int i = 0; i < 256; ++i) {
@@ -38,7 +38,7 @@ int main(void) {
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
   gConfig.numGlobalPaletteEntries = 256;
-  gConfig.path                    = "noise256.gif";
+  gConfig.path                    = "noise256_large.gif";
   //
   // create new GIF
   pGIF = cgif_newgif(&gConfig);

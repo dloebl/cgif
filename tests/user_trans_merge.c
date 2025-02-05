@@ -5,40 +5,28 @@
 
 #include "cgif.h"
 
-#define WIDTH  500
-#define HEIGHT 500
-
-static uint64_t seed;
-
-// unsigned integer overflow expected
-__attribute__((no_sanitize("integer")))
-int psdrand(void) {
-  // simple pseudo random function from musl libc
-  seed = 6364136223846793005ULL * seed + 1;
-  return seed >> 33;
-}
+#define WIDTH  2
+#define HEIGHT 2
 
 int main(void) {
   CGIF*          pGIF;
   CGIF_Config     gConfig;
   CGIF_FrameConfig   fConfig;
   uint8_t*      pImageData;
-  cgif_result   r;
-  uint8_t       aPalette[256 * 3]; 
+  uint8_t       aPalette[] = {
+    0x00, 0xFF, 0x00, // green
+    0xFF, 0xFF, 0xFF, // white
+  };
+  cgif_result r;
 
-  seed = 22;
-  for(int i = 0; i < 256; ++i) {
-    aPalette[i * 3]     = psdrand() % 256;
-    aPalette[i * 3 + 1] = psdrand() % 256;
-    aPalette[i * 3 + 2] = psdrand() % 256;
-  }
   memset(&gConfig, 0, sizeof(CGIF_Config));
   memset(&fConfig, 0, sizeof(CGIF_FrameConfig));
+  gConfig.attrFlags               = CGIF_ATTR_IS_ANIMATED;
   gConfig.width                   = WIDTH;
   gConfig.height                  = HEIGHT;
   gConfig.pGlobalPalette          = aPalette;
-  gConfig.numGlobalPaletteEntries = 256;
-  gConfig.path                    = "noise256.gif";
+  gConfig.numGlobalPaletteEntries = 2;
+  gConfig.path                    = "user_trans_merge.gif";
   //
   // create new GIF
   pGIF = cgif_newgif(&gConfig);
@@ -49,13 +37,20 @@ int main(void) {
   //
   // add frames to GIF
   pImageData = malloc(WIDTH * HEIGHT);
-  for(int i = 0; i < WIDTH * HEIGHT; ++i) pImageData[i] = psdrand() % 256;
+  memset(pImageData, 0, WIDTH * HEIGHT);
   fConfig.pImageData = pImageData;
+  fConfig.delay      = 500;
+  cgif_addframe(pGIF, &fConfig);
+  fConfig.attrFlags  = CGIF_FRAME_ATTR_HAS_SET_TRANS;
+  fConfig.genFlags   = CGIF_FRAME_GEN_USE_DIFF_WINDOW;
+  fConfig.transIndex = 1;
+  // set everything to transparent (frame from before shines through)
+  memset(pImageData, 1, WIDTH * HEIGHT);
   r = cgif_addframe(pGIF, &fConfig);
   free(pImageData);
   //
   // write GIF to file
-  r = cgif_close(pGIF); // free allocated space at the end of the session
+  r = cgif_close(pGIF);
 
   // check for errors
   if(r != CGIF_OK) {
