@@ -34,6 +34,7 @@ int main(void) {
   fconfig.pImageData = pImageDataRGB;
   fconfig.fmtChan    = CGIF_CHAN_FMT_RGB;  // fconfig.pImageData comes in RGB not RGBA blocks
   fconfig.delay      = 10;                 // set time before next frame (in units of 0.01 s)
+    fconfig.attrFlags  = CGIF_RGB_FRAME_ATTR_NO_DITHERING;
   int numFrames      = 3;
   
   for (int f = 0; f < numFrames; ++f) {
