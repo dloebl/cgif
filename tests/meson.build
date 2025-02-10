@@ -1,7 +1,9 @@
 # some unit tests are expected to fail when we generate the fuzzer seed corpus.
 # these tests might fail, as the cgif API wrapper (fuzz/cgif_create_fuzz_seed.c) does not behave exactly as cgif itself:
 # seed_should_fail should be set to true if that's the case.
-tests = [
+
+# tests for the indexed API
+tests_index = [
   { 'name' : 'all_optim',                          'seed_should_fail' : false},
   { 'name' : 'alpha',                              'seed_should_fail' : false},
   { 'name' : 'animated_color_gradient',            'seed_should_fail' : false},
@@ -49,7 +51,19 @@ tests = [
   { 'name' : 'write_fn',                           'seed_should_fail' : false},
 ]
 
-foreach t : tests
+# tests for the rgb API
+tests_rgb = [
+  { 'name' : 'rgb_255colors',                      'seed_should_fail' : false},
+  { 'name' : 'rgb_256colors',                      'seed_should_fail' : false},
+  { 'name' : 'rgb_256digit',                       'seed_should_fail' : false},
+  { 'name' : 'rgb_interlaced',                     'seed_should_fail' : false},
+  { 'name' : 'rgb_single_color',                   'seed_should_fail' : false},
+  { 'name' : 'rgb_no_dithering',                   'seed_should_fail' : false},
+  { 'name' : 'rgb_noise',                          'seed_should_fail' : false},
+  { 'name' : 'rgb_noise_animated',                 'seed_should_fail' : false},
+]
+
+foreach t : tests_index + tests_rgb
   name = t.get('name')
   test_exe = executable(
     'test_' + name,
