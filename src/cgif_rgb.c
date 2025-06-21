@@ -348,7 +348,7 @@ static void get_quantized_dithered_image(uint8_t* pImageData, float* pImageDataR
     we noticed certain artifacts with Floyd-Steinberg dithering if the error is passed too far.
     use a damping factor to reduce these effects.
   */
-  const float factor = 0.90;
+  const double factor = 0.90;
   if(!dithering) {
     for(i = 0; i < numPixel; ++i) {
       if(hasAlpha) {
