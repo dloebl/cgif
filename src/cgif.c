@@ -235,11 +235,11 @@ FoundHeight:
 static int getDiffAreaGlobalPalette(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_FrameConfig* pBef, DimResult *pResult) {
   const uint8_t* pCurImageData;
   const uint8_t* pBefImageData;
+  uint32_t       offset;
   uint16_t       i, x;
   uint16_t       newHeight, newWidth, newLeft, newTop;
   const uint16_t width  = pGIF->config.width;
   const uint16_t height = pGIF->config.height;
-  size_t offset;
 
   pCurImageData = pCur->pImageData;
   pBefImageData = pBef->pImageData;
@@ -261,7 +261,7 @@ static int getDiffAreaGlobalPalette(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fra
 
   // find actual height
   i = height - 1;
-  offset = i * width;
+  offset = MULU16(i, width);
   while(i > newTop) {
     if (memcmp(pCurImageData + offset, pBefImageData + offset, width)) {
       break;
@@ -274,14 +274,14 @@ static int getDiffAreaGlobalPalette(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fra
   // find left
   i = newTop;
   x = 0;
-  offset = i * width;
+  offset = MULU16(i, width);
   while(pCurImageData[offset + x] == pBefImageData[offset + x]) {
     ++i;
     offset += width;
     if(i > (newTop + newHeight - 1)) {
       ++x; //(x==width cannot happen as return 0 is triggered in the only possible case before)
       i = newTop;
-      offset = i * width;
+      offset = MULU16(i, width);
     }
   }
   newLeft = x;
@@ -289,14 +289,14 @@ static int getDiffAreaGlobalPalette(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fra
   // find actual width
   i = newTop;
   x = width - 1;
-  offset = i * width;
+  offset = MULU16(i, width);
   while(pCurImageData[offset + x] == pBefImageData[offset + x]) {
     ++i;
     offset += width;
     if(i > (newTop + newHeight - 1)) {
       --x; //(x<newLeft cannot happen as return 0 is triggered in the only possible case before)
       i = newTop;
-      offset = i * width;
+      offset = MULU16(i, width);
     }
   }
   newWidth = (x + 1) - newLeft;
@@ -498,7 +498,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
       int sameFrame = 1;
       if ((pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0 && (pGIF->aFrames[pGIF->iHEAD]->config.attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) == 0
           && (pConfig->attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) == 0 && (pGIF->aFrames[pGIF->iHEAD]->config.attrFlags & CGIF_FRAME_ATTR_HAS_SET_TRANS) == 0) {
-        if (memcmp(pConfig->pImageData, pGIF->aFrames[pGIF->iHEAD]->config.pImageData, pGIF->config.width * pGIF->config.height)) {
+        if (memcmp(pConfig->pImageData, pGIF->aFrames[pGIF->iHEAD]->config.pImageData, MULU16(pGIF->config.width, pGIF->config.height))) {
           sameFrame = 0;
         }
       } else {
