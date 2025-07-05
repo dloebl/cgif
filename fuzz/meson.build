@@ -59,10 +59,15 @@ endforeach
 
 # generate seed corpus zip archive, if possible
 if zip.found()
-  seeds = []
-  foreach t : tests_index + tests_rgb
-    seeds += t.get('name') + '.seed'
+  seeds_index = []
+  seeds_rgb = []
+  foreach t : tests_index
+    seeds_index += t.get('name') + '.seed'
   endforeach
-  test('create fuzzer seed corpus zip archive', zip, args : ['cgif_fuzzer_seed_corpus.zip', seeds], workdir : join_paths(meson.project_build_root(), 'fuzz'), priority : -4)
-  test('create file fuzzer seed corpus zip archive', zip, args : ['cgif_file_fuzzer_seed_corpus.zip', seeds], workdir : join_paths(meson.project_build_root(), 'fuzz'), priority : -4)
+  foreach t : tests_rgb
+    seeds_rgb += t.get('name') + '.seed'
+  endforeach
+  test('create fuzzer seed corpus zip archive', zip, args : ['cgif_fuzzer_seed_corpus.zip', seeds_index], workdir : join_paths(meson.project_build_root(), 'fuzz'), priority : -4)
+  test('create file fuzzer seed corpus zip archive', zip, args : ['cgif_file_fuzzer_seed_corpus.zip', seeds_index], workdir : join_paths(meson.project_build_root(), 'fuzz'), priority : -4)
+  test('create rgb fuzzer seed corpus zip archive', zip, args : ['cgif_rgb_fuzzer_seed_corpus.zip', seeds_rgb], workdir : join_paths(meson.project_build_root(), 'fuzz'), priority : -4)
 endif
