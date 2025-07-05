@@ -103,6 +103,9 @@ static int processInput(ByteStream* pStream) {
   return r;
 }
 
+#ifdef __cplusplus
+extern "C"
+#endif
 int LLVMFuzzerTestOneInput(const uint8_t* pData, size_t numBytes) {
   ByteStream input = { pData, numBytes, 0 };
   processInput(&input);
