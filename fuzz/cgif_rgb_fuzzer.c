@@ -85,7 +85,7 @@ static int processInput(ByteStream* pStream) {
   }
   sizeImageData = (uint32_t)gconfig.width * (uint32_t)gconfig.height;
   // limit dimensions of GIF to be created
-  if(sizeImageData > (4100 * 4100)) {
+  if(sizeImageData > (100 * 100)) {
     return -1;
   }
   gconfig.pWriteFn = writecb; // discard output
