@@ -41,7 +41,7 @@ static int read_gifconfig(ByteStream* pStream, CGIFrgb_Config* pDest) {
 
 static int read_frameconfig(ByteStream* pStream, CGIFrgb_FrameConfig* pDest, size_t sizeImageData) {
   int r;
-  uint8_t fmtChan;
+  uint8_t fmtChan = 0;
 
   memset(pDest, 0, sizeof(CGIFrgb_FrameConfig));
   // attrFlags  : U16
