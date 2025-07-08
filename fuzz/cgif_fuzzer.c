@@ -118,12 +118,12 @@ static int processInput(ByteStream* pStream) {
     cgif_addframe(pGIF, &fconfig);
     free(fconfig.pImageData);
     free(fconfig.pLocalPalette);
-    r = read_frameconfig(pStream, &fconfig, sizeImageData);
     if(numFrames >= 16) {
       // limit number of frames to avoid timeouts: 16 should be more than enough
       break;
     }
     numFrames++;
+    r = read_frameconfig(pStream, &fconfig, sizeImageData);
   }
   r = cgif_close(pGIF);
   return r;
