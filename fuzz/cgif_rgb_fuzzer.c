@@ -41,6 +41,7 @@ static int read_gifconfig(ByteStream* pStream, CGIFrgb_Config* pDest) {
 
 static int read_frameconfig(ByteStream* pStream, CGIFrgb_FrameConfig* pDest, size_t sizeImageData) {
   int r;
+  uint8_t fmtChan;
 
   memset(pDest, 0, sizeof(CGIFrgb_FrameConfig));
   // attrFlags  : U16
@@ -51,10 +52,11 @@ static int read_frameconfig(ByteStream* pStream, CGIFrgb_FrameConfig* pDest, siz
   r  = readdata(pStream, &pDest->attrFlags,              2);
   r |= readdata(pStream, &pDest->genFlags,               2);
   r |= readdata(pStream, &pDest->delay,                  2);
-  r |= readdata(pStream, &pDest->fmtChan,                1);
-  if(pDest->fmtChan > 4) {
-    return -1; // invalid fmtChan (avoid OOM)
+  r |= readdata(pStream, &fmtChan,                       1);
+  if(fmtChan != CGIF_CHAN_FMT_RGB && fmtChan != CGIF_CHAN_FMT_RGBA) {
+    return -1; // invalid fmtChan
   }
+  pDest->fmtChan = (cgif_chan_fmt)fmtChan;
   pDest->pImageData = (uint8_t*)malloc(sizeImageData * pDest->fmtChan);
   if(pDest->pImageData == NULL) return 0; // malloc failed
   r |= readdata(pStream, pDest->pImageData, sizeImageData * pDest->fmtChan);
