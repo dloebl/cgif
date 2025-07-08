@@ -78,6 +78,7 @@ static int processInput(ByteStream* pStream) {
   CGIFrgb*            pGIF;
   size_t              sizeImageData;
   int                 r;
+  int                 numFrames;
 
   r = read_gifconfig(pStream, &gconfig);
   if(!r) {
@@ -94,10 +95,16 @@ static int processInput(ByteStream* pStream) {
     return -1;
   }
   r = read_frameconfig(pStream, &fconfig, sizeImageData);
+  numFrames = 1;
   while(r) {
     cgif_rgb_addframe(pGIF, &fconfig);
     free(fconfig.pImageData);
     r = read_frameconfig(pStream, &fconfig, sizeImageData);
+    if(numFrames >= 16) {
+      // limit number of frames to avoid timeouts: 16 should be more than enough
+      break;
+    }
+    numFrames++;
   }
   r = cgif_rgb_close(pGIF);
   return r;
