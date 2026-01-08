@@ -305,12 +305,32 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   int          r;
   // TBD recycle LZW tree list and map (if possible) to decrease the number of allocs
   pContext             = malloc(sizeof(LZWGenState)); // TBD check return value of malloc
+  if(pContext == NULL) {
+    return CGIF_EALLOC;
+  }
+  memset(pContext, 0, sizeof(LZWGenState));
   pContext->pTreeInit  = malloc((initDictLen * sizeof(uint16_t)) * initDictLen); // TBD check return value of malloc
+  if(pContext->pTreeInit == NULL) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
   pContext->pTreeList  = malloc(((sizeof(uint16_t) * 2) + sizeof(uint16_t)) * MAX_DICT_LEN); // TBD check return value of malloc TBD check size
+  if(pContext->pTreeList == NULL) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
   pContext->pTreeMap   = malloc(((MAX_DICT_LEN / 2) + 1) * (initDictLen * sizeof(uint16_t))); // TBD check return value of malloc
+  if(pContext->pTreeMap == NULL) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
   pContext->numPixel   = numPixel;
   pContext->pImageData = pImageData;
   pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2)); // TBD check return value of malloc
+  if(pContext->pLZWData == NULL) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
   pContext->LZWPos     = 0;
 
   // actually generate the LZW sequence.
@@ -327,6 +347,12 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   uint64_t MaxByteListBlockLen = MAX_CODE_LEN * lzwPos * (BLOCK_SIZE + 1ull) / 8ull / BLOCK_SIZE + 2ull + 1ull +1ull; // conservative upper bound
   byteList      = malloc(MaxByteListLen); // TBD check return value of malloc
   byteListBlock = malloc(MaxByteListBlockLen); // TBD check return value of malloc
+  if(byteList == NULL || byteListBlock == NULL) {
+    free(byteList);
+    free(byteListBlock);
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
   bytePos       = create_byte_list(byteList,lzwPos, pContext->pLZWData, initDictLen, initCodeLen);
   bytePosBlock  = create_byte_list_block(byteList, byteListBlock, bytePos+1);
   free(byteList);
