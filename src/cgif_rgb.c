@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "cgif.h"
+#include "cgif_safe_alloc.h"
 
 #define MULU16(a, b) (((uint32_t)a) * ((uint32_t)b)) // helper macro to correctly multiply two U16's without default signed int promotion
 #define MAX(a,b) (a >= b ? a : b)
@@ -490,7 +491,12 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
     uint32_t* pFrequDense = hash_to_dense(colhash, fmtChan);
     treeNode* root        = create_decision_tree(colhash->pPalette, pFrequDense, pPalette256, colhash->cnt, colMax, depthMax); // create decision tree (dynamic, splits along rgb-dimension with highest variance)
     free(pFrequDense);
-    float* pImageDataRGBfloat = malloc(fmtChan * numPixel * sizeof(float)); // TBD fmtChan + only when hasAlpha
+    size_t bytesRGBfloat = 0;
+    if (cgif_size_mul3((size_t)fmtChan, (size_t)numPixel, sizeof(float), &bytesRGBfloat) != 0) {
+        // keep PATCH 2 scoped: treat overflow same as allocation failure
+        return CGIF_EALLOC;
+    }
+    float* pImageDataRGBfloat = (float*)malloc(bytesRGBfloat);
     for(uint32_t i = 0; i < fmtChan * numPixel; ++i){
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
@@ -557,38 +563,51 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
     pGIF->curResult = CGIF_ERROR;
     return CGIF_ERROR;
   }
-  pNewBef = malloc(pConfig->fmtChan * MULU16(imageWidth, imageHeight));
-  memcpy(pNewBef, pConfig->pImageData, pConfig->fmtChan * MULU16(imageWidth, imageHeight));
-  fConfig.pLocalPalette = aPalette;
-  fConfig.pImageData    = malloc(pGIF->config.width * (uint32_t)pGIF->config.height);
-  fConfig.delay         = pConfig->delay;
-  fConfig.attrFlags     = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
-  if(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_INTERLACED) {
-    fConfig.attrFlags |= CGIF_FRAME_ATTR_INTERLACED;
+  {
+    // Around the allocation noted in SECURITY_ANALYSIS.md (~line 560)
+    size_t numPix = 0;
+    if (cgif_size_mul((size_t)imageWidth, (size_t)imageHeight, &numPix) != 0) {
+        return CGIF_EALLOC;
+    }
+
+    size_t bytesNewBef = 0;
+    if (cgif_size_mul((size_t)pConfig->fmtChan, numPix, &bytesNewBef) != 0) {
+        return CGIF_EALLOC;
+    }
+
+    uint8_t* pNewBef = (uint8_t*)malloc(bytesNewBef);
+    memcpy(pNewBef, pConfig->pImageData, pConfig->fmtChan * MULU16(imageWidth, imageHeight));
+    fConfig.pLocalPalette = aPalette;
+    fConfig.pImageData    = malloc(pGIF->config.width * (uint32_t)pGIF->config.height);
+    fConfig.delay         = pConfig->delay;
+    fConfig.attrFlags     = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
+    if(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_INTERLACED) {
+      fConfig.attrFlags |= CGIF_FRAME_ATTR_INTERLACED;
+    }
+
+    colHashTable* colhash = get_color_histogram(pConfig->pImageData, numPixel, pConfig->fmtChan, &hasAlpha);
+    const uint8_t bDither = !(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_NO_DITHERING);
+    const int sizeLCT = quantize_and_dither(colhash, pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, bDither, hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
+    free_col_hash_table(colhash);
+
+    fConfig.numLocalPaletteEntries = sizeLCT;
+    if(hasAlpha) {
+      fConfig.attrFlags   |= CGIF_FRAME_ATTR_HAS_ALPHA;
+      fConfig.transIndex   = sizeLCT;
+    } else {
+      fConfig.attrFlags |= CGIF_FRAME_ATTR_HAS_SET_TRANS;
+      fConfig.transIndex = sizeLCT;
+    }
+    cgif_result r = cgif_addframe(pGIF->pGIF, &fConfig);
+    free(pGIF->pBefImageData);
+    pGIF->pBefImageData = pNewBef;
+    pGIF->befFmtChan    = pConfig->fmtChan;
+
+    // cleanup
+    free(fConfig.pImageData);
+    pGIF->curResult = r;
+    return r;
   }
-
-  colHashTable* colhash = get_color_histogram(pConfig->pImageData, numPixel, pConfig->fmtChan, &hasAlpha);
-  const uint8_t bDither = !(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_NO_DITHERING);
-  const int sizeLCT = quantize_and_dither(colhash, pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, bDither, hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
-  free_col_hash_table(colhash);
-
-  fConfig.numLocalPaletteEntries = sizeLCT;
-  if(hasAlpha) {
-    fConfig.attrFlags   |= CGIF_FRAME_ATTR_HAS_ALPHA;
-    fConfig.transIndex   = sizeLCT;
-  } else {
-    fConfig.attrFlags |= CGIF_FRAME_ATTR_HAS_SET_TRANS;
-    fConfig.transIndex = sizeLCT;
-  }
-  cgif_result r = cgif_addframe(pGIF->pGIF, &fConfig);
-  free(pGIF->pBefImageData);
-  pGIF->pBefImageData = pNewBef;
-  pGIF->befFmtChan    = pConfig->fmtChan;
-
-  // cleanup
-  free(fConfig.pImageData);
-  pGIF->curResult = r;
-  return r;
 }
 
 cgif_result cgif_rgb_close(CGIFrgb* pGIF) {

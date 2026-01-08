@@ -5,6 +5,7 @@
 
 #include "cgif.h"
 #include "cgif_raw.h"
+#include "cgif_safe_alloc.h"
 
 #define MULU16(a, b) (((uint32_t)a) * ((uint32_t)b)) // helper macro to correctly multiply two U16's without default signed int promotion
 #define SIZE_FRAME_QUEUE (3)
@@ -333,7 +334,14 @@ static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fram
   }
 
   // create new image data
-  pNewImageData = malloc(MULU16(pResult->width, pResult->height)); // TBD check return value of malloc
+  {
+    size_t numPix = 0;
+    if (cgif_size_mul((size_t)pResult->width, (size_t)pResult->height, &numPix) != 0) {
+        pGIF->curResult = CGIF_EALLOC;
+        return NULL;
+    }
+    pNewImageData = (uint8_t*)malloc(numPix);
+  }
   for (i = 0; i < pResult->height; ++i) {
     memcpy(pNewImageData + MULU16(i, pResult->width), pCurImageData + MULU16((i + pResult->top), width) + pResult->left, pResult->width);
   }
@@ -538,7 +546,13 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   // create new Frame struct + make a deep copy of pConfig.
   pNewFrame = malloc(sizeof(CGIF_Frame));
   copyFrameConfig(&(pNewFrame->config), pConfig);
-  pNewFrame->config.pImageData = malloc(MULU16(pGIF->config.width, pGIF->config.height));
+  {
+    size_t numPix = 0;
+    if (cgif_size_mul((size_t)pConfig->width, (size_t)pConfig->height, &numPix) != 0) {
+        return CGIF_EALLOC;
+    }
+    pNewFrame->config.pImageData = malloc(numPix);
+  }
   memcpy(pNewFrame->config.pImageData, pConfig->pImageData, MULU16(pGIF->config.width, pGIF->config.height));
   // make a deep copy of the local color table, if required.
   if(pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) {
