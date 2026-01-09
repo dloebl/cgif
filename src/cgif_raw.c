@@ -304,7 +304,7 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   uint32_t     bytePosBlock;
   int          r;
   // TBD recycle LZW tree list and map (if possible) to decrease the number of allocs
-  pContext             = malloc(sizeof(LZWGenState)); // TBD check return value of malloc
+  pContext             = malloc(sizeof(LZWGenState));
   if(pContext == NULL) {
     return CGIF_EALLOC;
   }
