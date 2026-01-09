@@ -549,11 +549,11 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   {
     size_t numPix = 0;
     if (cgif_size_mul((size_t)pConfig->width, (size_t)pConfig->height, &numPix) != 0) {
-        return CGIF_EALLOC;
+      return CGIF_EALLOC;
     }
     pNewFrame->config.pImageData = malloc(numPix);
   }
-  memcpy(pNewFrame->config.pImageData, pConfig->pImageData, MULU16(pGIF->config.width, pGIF->config.height));
+  memcpy(pNewFrame->config.pImageData, pConfig->pImageData, numPix);
   // make a deep copy of the local color table, if required.
   if(pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) {
     pNewFrame->config.pLocalPalette  = malloc(pConfig->numLocalPaletteEntries * 3);
