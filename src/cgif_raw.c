@@ -314,7 +314,7 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
     r = CGIF_EALLOC;
     goto LZWGENERATE_Cleanup;
   }
-  pContext->pTreeList  = malloc(((sizeof(uint16_t) * 2) + sizeof(uint16_t)) * MAX_DICT_LEN); // TBD check return value of malloc TBD check size
+  pContext->pTreeList  = malloc(((sizeof(uint16_t) * 2) + sizeof(uint16_t)) * MAX_DICT_LEN);
   if(pContext->pTreeList == NULL) {
     r = CGIF_EALLOC;
     goto LZWGENERATE_Cleanup;
