@@ -326,7 +326,7 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   }
   pContext->numPixel   = numPixel;
   pContext->pImageData = pImageData;
-  pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2)); // TBD check return value of malloc
+  pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2));
   if(pContext->pLZWData == NULL) {
     r = CGIF_EALLOC;
     goto LZWGENERATE_Cleanup;
