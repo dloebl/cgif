@@ -497,6 +497,10 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
         return CGIF_EALLOC;
     }
     float* pImageDataRGBfloat = (float*)malloc(bytesRGBfloat);
+    if (pImageDataRGBfloat == NULL) {
+      free_decision_tree(root);
+      return CGIF_EALLOC;
+    }
     for(uint32_t i = 0; i < fmtChan * numPixel; ++i){
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
