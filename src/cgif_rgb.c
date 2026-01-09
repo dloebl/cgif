@@ -583,10 +583,17 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
     if (pNewBef == NULL) {
       pGIF->curResult = CGIF_EALLOC;
       return CGIF_EALLOC;
+    uint8_t* pNewBef = (uint8_t*)malloc(bytesNewBef);
+    if (pNewBef == NULL) {
+      return CGIF_EALLOC;
     }
     memcpy(pNewBef, pConfig->pImageData, pConfig->fmtChan * MULU16(imageWidth, imageHeight));
     fConfig.pLocalPalette = aPalette;
     fConfig.pImageData    = malloc(pGIF->config.width * (uint32_t)pGIF->config.height);
+    if (fConfig.pImageData == NULL) {
+      free(pNewBef);
+      return CGIF_EALLOC;
+    }
     fConfig.delay         = pConfig->delay;
     fConfig.attrFlags     = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
     if(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_INTERLACED) {
