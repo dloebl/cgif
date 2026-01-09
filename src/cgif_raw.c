@@ -346,7 +346,7 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   uint64_t MaxByteListLen = MAX_CODE_LEN * lzwPos / 8ull + 2ull + 1ull; // conservative upper bound
   uint64_t MaxByteListBlockLen = MAX_CODE_LEN * lzwPos * (BLOCK_SIZE + 1ull) / 8ull / BLOCK_SIZE + 2ull + 1ull +1ull; // conservative upper bound
   byteList      = malloc(MaxByteListLen);
-  byteListBlock = malloc(MaxByteListBlockLen); // TBD check return value of malloc
+  byteListBlock = malloc(MaxByteListBlockLen);
   if(byteList == NULL || byteListBlock == NULL) {
     free(byteList);
     free(byteListBlock);
