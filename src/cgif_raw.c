@@ -319,7 +319,7 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
     r = CGIF_EALLOC;
     goto LZWGENERATE_Cleanup;
   }
-  pContext->pTreeMap   = malloc(((MAX_DICT_LEN / 2) + 1) * (initDictLen * sizeof(uint16_t))); // TBD check return value of malloc
+  pContext->pTreeMap   = malloc(((MAX_DICT_LEN / 2) + 1) * (initDictLen * sizeof(uint16_t)));
   if(pContext->pTreeMap == NULL) {
     r = CGIF_EALLOC;
     goto LZWGENERATE_Cleanup;
