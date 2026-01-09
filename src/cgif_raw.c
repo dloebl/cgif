@@ -313,25 +313,29 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   // pTreeInit = malloc((initDictLen * sizeof(uint16_t)) * initDictLen);
   size_t bytesTreeInit = 0;
   if (cgif_size_mul3((size_t)initDictLen, (size_t)initDictLen, sizeof(uint16_t), &bytesTreeInit) != 0) {
-      return CGIF_EALLOC;
+      r = CGIF_EALLOC;
+      goto LZWGENERATE_Cleanup;
   }
   pContext->pTreeInit = (uint16_t*)malloc(bytesTreeInit);
 
   // pTreeList = malloc(((sizeof(uint16_t) * 2) + sizeof(uint16_t)) * MAX_DICT_LEN);
   size_t bytesTreeList = 0;
   if (cgif_size_mul((size_t)MAX_DICT_LEN, (sizeof(uint16_t) * 3u), &bytesTreeList) != 0) {
-      return CGIF_EALLOC;
+      r = CGIF_EALLOC;
+      goto LZWGENERATE_Cleanup;
   }
   pContext->pTreeList = (uint16_t*)malloc(bytesTreeList);
 
   // pTreeMap  = malloc(((MAX_DICT_LEN / 2) + 1) * (initDictLen * sizeof(uint16_t)));
   size_t bytesTreeMapRow = 0;
   if (cgif_size_mul((size_t)initDictLen, sizeof(uint16_t), &bytesTreeMapRow) != 0) {
-      return CGIF_EALLOC;
+      r = CGIF_EALLOC;
+      goto LZWGENERATE_Cleanup;
   }
   size_t bytesTreeMap = 0;
   if (cgif_size_mul(((size_t)MAX_DICT_LEN / 2u) + 1u, bytesTreeMapRow, &bytesTreeMap) != 0) {
-      return CGIF_EALLOC;
+      r = CGIF_EALLOC;
+      goto LZWGENERATE_Cleanup;
   }
   pContext->pTreeMap = (uint16_t*)malloc(bytesTreeMap);
 
