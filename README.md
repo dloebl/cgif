@@ -27,7 +27,7 @@ To get an overview of the API, we recommend having a look at our wiki (https://g
 
 ```C
 // These are the struct types that contain all GIF data and parameters:
-typedef CGIF_Config               // global cofinguration parameters of the GIF
+typedef CGIF_Config               // global configuration parameters of the GIF
 typedef CGIF_FrameConfig          // local configuration parameters for a frame
 typedef CGIF                      // struct for the full GIF
 typedef CGIFrgb_Config            // global cofinguration parameters of the RGB GIF
