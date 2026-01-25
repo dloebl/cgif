@@ -31,7 +31,7 @@ typedef CGIF_Config               // global cofinguration parameters of the GIF
 typedef CGIF_FrameConfig          // local configuration parameters for a frame
 typedef CGIF                      // struct for the full GIF
 typedef CGIFrgb_Config            // global cofinguration parameters of the RGB GIF
-typedef CGIFrgb_FrameConfig       // local configuration parameters for a RGB frame
+typedef CGIFrgb_FrameConfig       // local configuration parameters for an RGB frame
 typedef CGIFrgb                   // struct for the full RGB GIF
 
 // The user needs only these functions to create a GIF image:
