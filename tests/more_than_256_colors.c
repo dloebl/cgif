@@ -69,7 +69,7 @@ int main(void) {
   for (int i = WIDTH/3 * HEIGHT; i < (WIDTH * HEIGHT); ++i) {
     pImageData[i] = i % WIDTH;  // set part of the image to new colors
   }
-  r = cgif_addframe(pGIF, &fConfig);
+  cgif_addframe(pGIF, &fConfig);
   
   // 3rd frame
   for(int i=0; i<numColorsLocal; i++){
@@ -81,7 +81,7 @@ int main(void) {
   for (int i = WIDTH/3*2 * HEIGHT; i < (WIDTH * HEIGHT); ++i) {
     pImageData[i] = i % WIDTH;  // set part of the image to new colors
   }
-  r = cgif_addframe(pGIF, &fConfig);
+  cgif_addframe(pGIF, &fConfig);
   
   free(pImageData);
   

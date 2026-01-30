@@ -129,12 +129,22 @@ static int32_t col_hash_collision_count(const uint8_t* rgb, const uint8_t* hashT
 /* initialize hash table storing colors and their frequency */
 static colHashTable* init_col_hash_table(uint32_t tableSize){
   colHashTable* colhash = malloc(sizeof(colHashTable));
+  if(colhash == NULL) return NULL;
   colhash->tableSize = getNextPrimePower2(tableSize); // increase table size to next prime number
   colhash->frequ = malloc(sizeof(uint32_t) * colhash->tableSize);
   colhash->hashTable = malloc(3 * colhash->tableSize);
   colhash->indexUsed = malloc(colhash->tableSize);
   colhash->pPalette = malloc(3 * colhash->tableSize);
   colhash->colIdx = malloc(sizeof(uint32_t)*colhash->tableSize);
+  if(!colhash->frequ || !colhash->hashTable || !colhash->indexUsed || !colhash->pPalette || !colhash->colIdx) {
+    free(colhash->frequ);
+    free(colhash->hashTable);
+    free(colhash->indexUsed);
+    free(colhash->pPalette);
+    free(colhash->colIdx);
+    free(colhash);
+    return NULL;
+  }
   colhash->cnt = 0;                                      // no colors initially
   memset(colhash->pPalette, 0, 3 * colhash->tableSize);  // unused part of color table is uninitialized otheriwse
   memset(colhash->indexUsed, 0, colhash->tableSize);     // initially no entry in hash-table is used
@@ -243,6 +253,7 @@ static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* num
   float var[3];
 
   treeNode* node = malloc(sizeof(treeNode));
+  if(node == NULL) return NULL;
   node->idxMin   = idxMin; // minimum color in pPalette belonging to the node
   node->idxMax   = idxMax; // maximum color in pPalette belonging to the node
   get_variance(pPalette, frequ, idxMin, idxMax, var, node->mean);
@@ -446,6 +457,7 @@ static colHashTable* get_color_histogram(const uint8_t* pImageDataRGB, uint32_t 
   uint32_t cntCollision;                                    // count the number of collision
   uint32_t  tableSize = 262147;                             // initial size of the hash table
   colHashTable* colhash = init_col_hash_table(tableSize);   // initialize the hash table storing all the colors
+  if(colhash == NULL) return NULL;
   *pHasAlpha = 0;                                           // assume no alpha channel until it is found
   const uint8_t sizePixel = fmtChan;                        // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
   for(uint32_t i = 0; i < numPixel; ++i) {
@@ -491,6 +503,10 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
     treeNode* root        = create_decision_tree(colhash->pPalette, pFrequDense, pPalette256, colhash->cnt, colMax, depthMax); // create decision tree (dynamic, splits along rgb-dimension with highest variance)
     free(pFrequDense);
     float* pImageDataRGBfloat = malloc(fmtChan * numPixel * sizeof(float)); // TBD fmtChan + only when hasAlpha
+    if(pImageDataRGBfloat == NULL) {
+      free_decision_tree(root);
+      return 0;
+    }
     for(uint32_t i = 0; i < fmtChan * numPixel; ++i){
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
@@ -558,9 +574,18 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
     return CGIF_ERROR;
   }
   pNewBef = malloc(pConfig->fmtChan * MULU16(imageWidth, imageHeight));
+  if(pNewBef == NULL) {
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
   memcpy(pNewBef, pConfig->pImageData, pConfig->fmtChan * MULU16(imageWidth, imageHeight));
   fConfig.pLocalPalette = aPalette;
   fConfig.pImageData    = malloc(pGIF->config.width * (uint32_t)pGIF->config.height);
+  if(fConfig.pImageData == NULL) {
+    free(pNewBef);
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
   fConfig.delay         = pConfig->delay;
   fConfig.attrFlags     = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
   if(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_INTERLACED) {
@@ -568,6 +593,12 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
   }
 
   colHashTable* colhash = get_color_histogram(pConfig->pImageData, numPixel, pConfig->fmtChan, &hasAlpha);
+  if(colhash == NULL) {
+    free(pNewBef);
+    free(fConfig.pImageData);
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
   const uint8_t bDither = !(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_NO_DITHERING);
   const int sizeLCT = quantize_and_dither(colhash, pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, bDither, hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
   free_col_hash_table(colhash);
