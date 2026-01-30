@@ -304,17 +304,36 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   uint32_t     bytePosBlock;
   int          r;
   // TBD recycle LZW tree list and map (if possible) to decrease the number of allocs
-  pContext             = malloc(sizeof(LZWGenState)); // TBD check return value of malloc
-  pContext->pTreeInit  = malloc((initDictLen * sizeof(uint16_t)) * initDictLen); // TBD check return value of malloc
-  pContext->pTreeList  = malloc(((sizeof(uint16_t) * 2) + sizeof(uint16_t)) * MAX_DICT_LEN); // TBD check return value of malloc TBD check size
-  pContext->pTreeMap   = malloc(((MAX_DICT_LEN / 2) + 1) * (initDictLen * sizeof(uint16_t))); // TBD check return value of malloc
+  pContext             = malloc(sizeof(LZWGenState));
+  if(pContext == NULL) {
+    return CGIF_EALLOC;
+  }
+  pContext->pTreeInit  = malloc((initDictLen * sizeof(uint16_t)) * initDictLen);
+  if(pContext->pTreeInit == NULL) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
+  pContext->pTreeList  = malloc(((sizeof(uint16_t) * 2) + sizeof(uint16_t)) * MAX_DICT_LEN);
+  if(pContext->pTreeList == NULL) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
+  pContext->pTreeMap   = malloc(((MAX_DICT_LEN / 2) + 1) * (initDictLen * sizeof(uint16_t)));
+  if(pContext->pTreeMap == NULL) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
   pContext->numPixel   = numPixel;
   pContext->pImageData = pImageData;
   // Buffer must hold at max (conservative upper bound): 1 initial clear + numPixel data codes + N reset clears + 1 termination
   // where N = max dictionary resets = numPixel / (MAX_DICT_LEN - initDictLen - 2)
   entriesPerCycle = MAX_DICT_LEN - initDictLen - 2; // maximum added number of dictionary entries per cycle: -2 to account for start and end code
   maxResets = numPixel / entriesPerCycle;
-  pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2 + maxResets));  // TBD check return value of malloc
+  pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2 + maxResets));
+  if(pContext->pLZWData == NULL) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
   pContext->LZWPos     = 0;
 
   // actually generate the LZW sequence.
@@ -329,8 +348,14 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   uint8_t *byteListBlock; // lzw-data packed in byte-list with 255-block structure
   uint64_t MaxByteListLen = MAX_CODE_LEN * lzwPos / 8ull + 2ull + 1ull; // conservative upper bound
   uint64_t MaxByteListBlockLen = MAX_CODE_LEN * lzwPos * (BLOCK_SIZE + 1ull) / 8ull / BLOCK_SIZE + 2ull + 1ull +1ull; // conservative upper bound
-  byteList      = malloc(MaxByteListLen); // TBD check return value of malloc
-  byteListBlock = malloc(MaxByteListBlockLen); // TBD check return value of malloc
+  byteList      = malloc(MaxByteListLen);
+  byteListBlock = malloc(MaxByteListBlockLen);
+  if(byteList == NULL || byteListBlock == NULL) {
+    free(byteList);
+    free(byteListBlock);
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
   bytePos       = create_byte_list(byteList,lzwPos, pContext->pLZWData, initDictLen, initCodeLen);
   bytePosBlock  = create_byte_list_block(byteList, byteListBlock, bytePos+1);
   free(byteList);
