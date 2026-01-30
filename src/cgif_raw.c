@@ -300,7 +300,7 @@ static uint32_t create_byte_list_block(uint8_t *byteList, uint8_t *byteListBlock
 /* create all LZW raster data in GIF-format */
 static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const uint8_t* pImageData, const uint16_t initDictLen, const uint8_t initCodeLen){
   LZWGenState* pContext;
-  uint32_t     lzwPos, bytePos;
+  uint32_t     lzwPos, bytePos, entriesPerCycle, maxResets;
   uint32_t     bytePosBlock;
   int          r;
   // TBD recycle LZW tree list and map (if possible) to decrease the number of allocs
@@ -308,7 +308,6 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   if(pContext == NULL) {
     return CGIF_EALLOC;
   }
-  memset(pContext, 0, sizeof(LZWGenState));
   pContext->pTreeInit  = malloc((initDictLen * sizeof(uint16_t)) * initDictLen);
   if(pContext->pTreeInit == NULL) {
     r = CGIF_EALLOC;
@@ -326,7 +325,11 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   }
   pContext->numPixel   = numPixel;
   pContext->pImageData = pImageData;
-  pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2));
+  // Buffer must hold at max (conservative upper bound): 1 initial clear + numPixel data codes + N reset clears + 1 termination
+  // where N = max dictionary resets = numPixel / (MAX_DICT_LEN - initDictLen - 2)
+  entriesPerCycle = MAX_DICT_LEN - initDictLen - 2; // maximum added number of dictionary entries per cycle: -2 to account for start and end code
+  maxResets = numPixel / entriesPerCycle;
+  pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2 + maxResets));
   if(pContext->pLZWData == NULL) {
     r = CGIF_EALLOC;
     goto LZWGENERATE_Cleanup;
