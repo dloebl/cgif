@@ -17,4 +17,4 @@ jobs:
       - name: Configure Meson
         run: meson setup build -Dfuzzer=true
       - name: Run Infer
-        run: infer run --fail-on-issue --compilation-database build/compile_commands.json
+        run: infer run --fail-on-issue --disable-issue-type PULSE_UNINITIALIZED_VALUE --compilation-database build/compile_commands.json

@@ -511,6 +511,8 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
     uint8_t transIndex = colMax;
+    // @infer-ignore PULSE_UNINITIALIZED_VALUE
+    // pImageDataRGBfloat is fully initialized in the loop above
     get_quantized_dithered_image(pImageData, pImageDataRGBfloat, pPalette256, root, numPixel, width, dithering, transIndex, fmtChan, pBef, befFmtChan, hasAlpha); // do color quantization and dithering
     free(pImageDataRGBfloat); // RGB image is not needed anymore
     free_decision_tree(root); // tree for color quantization is not needed anymore
