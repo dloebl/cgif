@@ -1,4 +1,6 @@
 name: Infer Static Analysis
+permissions:
+  contents: read
 on:
   - push
   - pull_request
