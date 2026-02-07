@@ -254,7 +254,7 @@ static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* num
 }
 
 /* create the decision tree. (Similar to qsort with limited depth: pPalette, frequ get sorted) */
-static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t* pPalette, uint32_t* frequ, uint16_t colMax) {
+static int crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t* pPalette, uint32_t* frequ, uint16_t colMax) {
   uint32_t i, k, saveNum;
   uint16_t nodeIdx = 0;
   uint8_t saveBlk[3];
@@ -264,6 +264,9 @@ static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t
 
   while(*numLeaveNodes <= (colMax - 1)){
     parent = nodeList[nodeIdx++]; // go to next node in the list
+    if(parent == NULL) {
+      return -1; // allocation failed earlier
+    }
     if (parent->idxMax - parent->idxMin >= 1) { // condition for node split
     i = parent->idxMin; // start of block minimum
     k = parent->idxMax; // start at block maximum
@@ -283,14 +286,21 @@ static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t
     (*numLeaveNodes)--;  // decrease counter since parent is removed as a leave node
     parent->child0 = new_tree_node(pPalette, frequ, numLeaveNodes, parent->idxMin, i - 1, parent->colIdx); // i-1 is last index of 1st block, one child takes color index from parent
     parent->child1 = new_tree_node(pPalette, frequ, numLeaveNodes, i, parent->idxMax, *numLeaveNodes);
+    if(parent->child0 == NULL || parent->child1 == NULL) {
+      return -1; // allocation failed
+    }
     nodeList[2*(*numLeaveNodes) - 3] = parent->child0; // add new child nodes to the list (total number of nodes is always 2*(*numLeaveNodes)-1)
     nodeList[2*(*numLeaveNodes) - 2] = parent->child1; // add new child nodes to the list (total number of nodes is always 2*(*numLeaveNodes)-1)
     }
   }
+  return 0; // success
 }
 
 /* fill 256 color table using the decision tree */
 static void get_palette_from_decision_tree(const treeNode* root, uint8_t* pPalette256){
+  if(root == NULL) {
+    return; // NULL guard
+  }
   if(root->isLeave == 0) {
     get_palette_from_decision_tree(root->child0, pPalette256);
     get_palette_from_decision_tree(root->child1, pPalette256);
@@ -319,13 +329,22 @@ static uint8_t get_leave_node_index(const treeNode* root, const float* rgb) {
 static treeNode* create_decision_tree(uint8_t* pPalette,  uint32_t* pFrequDense, uint8_t* pPalette256, uint32_t cnt, uint16_t colMax, uint8_t depthMax){
   uint16_t numLeaveNodes = 0;
   treeNode* root = new_tree_node(pPalette, pFrequDense, &numLeaveNodes, 0, cnt - 1, 0);
-  crawl_decision_tree(root, &numLeaveNodes, pPalette, pFrequDense, colMax);
+  if(root == NULL) {
+    return NULL; // allocation failed
+  }
+  if(crawl_decision_tree(root, &numLeaveNodes, pPalette, pFrequDense, colMax) != 0) {
+    free_decision_tree(root);
+    return NULL; // allocation failed during tree construction
+  }
   get_palette_from_decision_tree(root, pPalette256); // fill the reduced color table
   return root;
 }
 
 /* free memory allocated for the tree */
 static void free_decision_tree(treeNode* root){
+  if(root == NULL) {
+    return; // NULL guard
+  }
   if(root->isLeave == 0) { // if the node has children
     free_decision_tree(root->child0);
     free_decision_tree(root->child1);
@@ -446,11 +465,14 @@ static colHashTable* get_color_histogram(const uint8_t* pImageDataRGB, uint32_t 
   uint32_t cntCollision;                                    // count the number of collision
   uint32_t  tableSize = 262147;                             // initial size of the hash table
   colHashTable* colhash = init_col_hash_table(tableSize);   // initialize the hash table storing all the colors
+  if(colhash == NULL) {
+    return NULL; // allocation failed
+  }
   *pHasAlpha = 0;                                           // assume no alpha channel until it is found
   const uint8_t sizePixel = fmtChan;                        // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
   for(uint32_t i = 0; i < numPixel; ++i) {
     uint32_t h = col_hash_collision_count(&pImageDataRGB[sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan, &cntCollision);
-    if(h == -1) { // -1 means that the user has set a user-defined transparency (alpha channel)
+    if(h == (uint32_t)-1) { // -1 means that the user has set a user-defined transparency (alpha channel)
       *pHasAlpha = 1;
       continue; // do not take this pixel into account (e.g. alpha channel present)
     }
@@ -466,7 +488,10 @@ static colHashTable* get_color_histogram(const uint8_t* pImageDataRGB, uint32_t 
     }
     // resize the hash table (if more than half-full)
     if((colhash->cnt > (colhash->tableSize >> 1) || cntCollision > MAX_COLLISIONS) && colhash->tableSize < MAX_TABLE_SIZE) {
-      resize_col_hash_table(colhash);
+      if(resize_col_hash_table(colhash) != 0) {
+        free_col_hash_table(colhash);
+        return NULL; // resize failed
+      }
     }
   }
   return colhash;
