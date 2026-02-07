@@ -102,6 +102,13 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
   // make a deep copy of global color tabele (GCT), if required.
   if((pConfig->attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
     pGIF->config.pGlobalPalette = malloc(pConfig->numGlobalPaletteEntries * 3);
+    if(pGIF->config.pGlobalPalette == NULL) {
+      if(pFile) {
+        fclose(pFile);
+      }
+      free(pGIF);
+      return NULL; // allocation failed
+    }
     memcpy(pGIF->config.pGlobalPalette, pConfig->pGlobalPalette, pConfig->numGlobalPaletteEntries * 3);
   }
 
@@ -332,13 +339,7 @@ static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fram
     pResult->top    = 0;
   }
 
-  // create new image data
-  pNewImageData = malloc(MULU16(pResult->width, pResult->height)); // TBD check return value of malloc
-  for (i = 0; i < pResult->height; ++i) {
-    memcpy(pNewImageData + MULU16(i, pResult->width), pCurImageData + MULU16((i + pResult->top), width) + pResult->left, pResult->width);
-  }
-
-  return pNewImageData;
+  // create new image data\r\n  pNewImageData = malloc(MULU16(pResult->width, pResult->height));\r\n  if(pNewImageData == NULL) {\r\n    return NULL; // allocation failed\r\n  }\r\n  for (i = 0; i < pResult->height; ++i) {\r\n    memcpy(pNewImageData + MULU16(i, pResult->width), pCurImageData + MULU16((i + pResult->top), width) + pResult->left, pResult->width);\r\n  }\r\n\r\n  return pNewImageData;
 }
 
 /* move frame down to the raw GIF API */
@@ -381,6 +382,9 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   // purge overlap of current frame and frame before (width - height optim), if required (CGIF_FRAME_GEN_USE_DIFF_WINDOW set)
   if(pCur->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW) {
     pTmpImageData = doWidthHeightOptim(pGIF, &pCur->config, &pBef->config, &dimResult);
+    if(pTmpImageData == NULL) {
+      return CGIF_EALLOC; // allocation failed
+    }
     width  = dimResult.width;
     height = dimResult.height;
     top    = dimResult.top;
@@ -403,7 +407,10 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
       transIndex = (1 << (pow2 + 1)) - 1;
     }
     if(pTmpImageData == NULL) {
-      pTmpImageData = malloc(MULU16(imageWidth, imageHeight)); // TBD check return value of malloc
+      pTmpImageData = malloc(MULU16(imageWidth, imageHeight));
+      if(pTmpImageData == NULL) {
+        return CGIF_EALLOC; // allocation failed
+      }
       memcpy(pTmpImageData, pCur->config.pImageData, MULU16(imageWidth, imageHeight));
     }
     pBefImageData = pBef->config.pImageData;
@@ -535,16 +542,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     pGIF->aFrames[0] = pGIF->aFrames[1];
     pGIF->aFrames[1] = pGIF->aFrames[2];
   }
-  // create new Frame struct + make a deep copy of pConfig.
-  pNewFrame = malloc(sizeof(CGIF_Frame));
-  copyFrameConfig(&(pNewFrame->config), pConfig);
-  pNewFrame->config.pImageData = malloc(MULU16(pGIF->config.width, pGIF->config.height));
-  memcpy(pNewFrame->config.pImageData, pConfig->pImageData, MULU16(pGIF->config.width, pGIF->config.height));
-  // make a deep copy of the local color table, if required.
-  if(pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) {
-    pNewFrame->config.pLocalPalette  = malloc(pConfig->numLocalPaletteEntries * 3);
-    memcpy(pNewFrame->config.pLocalPalette, pConfig->pLocalPalette, pConfig->numLocalPaletteEntries * 3);
-  }
+  // create new Frame struct + make a deep copy of pConfig.\r\n  pNewFrame = malloc(sizeof(CGIF_Frame));\r\n  if(pNewFrame == NULL) {\r\n    pGIF->curResult = CGIF_EALLOC;\r\n    return CGIF_EALLOC;\r\n  }\r\n  copyFrameConfig(&(pNewFrame->config), pConfig);\r\n  pNewFrame->config.pImageData = malloc(MULU16(pGIF->config.width, pGIF->config.height));\r\n  if(pNewFrame->config.pImageData == NULL) {\r\n    free(pNewFrame);\r\n    pGIF->curResult = CGIF_EALLOC;\r\n    return CGIF_EALLOC;\r\n  }\r\n  memcpy(pNewFrame->config.pImageData, pConfig->pImageData, MULU16(pGIF->config.width, pGIF->config.height));\r\n  // make a deep copy of the local color table, if required.\r\n  if(pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) {\r\n    pNewFrame->config.pLocalPalette  = malloc(pConfig->numLocalPaletteEntries * 3);\r\n    if(pNewFrame->config.pLocalPalette == NULL) {\r\n      free(pNewFrame->config.pImageData);\r\n      free(pNewFrame);\r\n      pGIF->curResult = CGIF_EALLOC;\r\n      return CGIF_EALLOC;\r\n    }\r\n    memcpy(pNewFrame->config.pLocalPalette, pConfig->pLocalPalette, pConfig->numLocalPaletteEntries * 3);\r\n  }
   pNewFrame->disposalMethod        = DISPOSAL_METHOD_LEAVE;
   pNewFrame->transIndex            = 0;
   pGIF->aFrames[i]                 = pNewFrame; // add frame to queue
