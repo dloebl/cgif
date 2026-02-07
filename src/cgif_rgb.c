@@ -129,12 +129,24 @@ static int32_t col_hash_collision_count(const uint8_t* rgb, const uint8_t* hashT
 /* initialize hash table storing colors and their frequency */
 static colHashTable* init_col_hash_table(uint32_t tableSize){
   colHashTable* colhash = malloc(sizeof(colHashTable));
+  if(colhash == NULL) {
+    return NULL; // allocation failed
+  }
   colhash->tableSize = getNextPrimePower2(tableSize); // increase table size to next prime number
   colhash->frequ = malloc(sizeof(uint32_t) * colhash->tableSize);
   colhash->hashTable = malloc(3 * colhash->tableSize);
   colhash->indexUsed = malloc(colhash->tableSize);
   colhash->pPalette = malloc(3 * colhash->tableSize);
   colhash->colIdx = malloc(sizeof(uint32_t)*colhash->tableSize);
+  if(colhash->frequ == NULL || colhash->hashTable == NULL || colhash->indexUsed == NULL || colhash->pPalette == NULL || colhash->colIdx == NULL) {
+    free(colhash->frequ);
+    free(colhash->hashTable);
+    free(colhash->indexUsed);
+    free(colhash->pPalette);
+    free(colhash->colIdx);
+    free(colhash);
+    return NULL; // allocation failed
+  }
   colhash->cnt = 0;                                      // no colors initially
   memset(colhash->pPalette, 0, 3 * colhash->tableSize);  // unused part of color table is uninitialized otheriwse
   memset(colhash->indexUsed, 0, colhash->tableSize);     // initially no entry in hash-table is used
@@ -214,6 +226,9 @@ static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* num
   float var[3];
 
   treeNode* node = malloc(sizeof(treeNode));
+  if(node == NULL) {
+    return NULL; // allocation failed
+  }
   node->idxMin   = idxMin; // minimum color in pPalette belonging to the node
   node->idxMax   = idxMax; // maximum color in pPalette belonging to the node
   get_variance(pPalette, frequ, idxMin, idxMax, var, node->mean);
