@@ -151,36 +151,7 @@ static void free_col_hash_table(colHashTable* colhash){
   free(colhash);
 }
 
-/* increase the size of the color hash table */
-static void resize_col_hash_table(colHashTable* colhash){
-  uint32_t tableSizeNew;
-  tableSizeNew  = getNextPrimePower2(colhash->tableSize); // increase table size to the next prime number above the next power of two
-  colhash->pPalette      = realloc(colhash->pPalette, 3 * tableSizeNew);
-  colhash->colIdx        = realloc(colhash->colIdx, sizeof(uint32_t) * tableSizeNew);
-  uint8_t* hashTable_new = malloc(3 * tableSizeNew);
-  uint8_t* indexUsed_new = malloc(tableSizeNew);
-  uint32_t* frequ_new = malloc(sizeof(uint32_t) * tableSizeNew);
-  memset(indexUsed_new, 0, tableSizeNew);
-  colhash->cnt = 0;
-  for(uint32_t j = 0; j < colhash->tableSize; ++j) { // TBD (no improvement when tested): easier to loop over pPalette and also leave pPalette in place?, if indexUsed is also unnecessary then
-    if(colhash->indexUsed[j] == 1){
-      uint32_t h = col_hash(colhash->hashTable + 3 * j, hashTable_new, indexUsed_new, tableSizeNew, 3); // recompute hash with new table size
-      memcpy(&hashTable_new[3 * h], colhash->hashTable + 3 * j, 3); // put value from old hash table to right position of the new one
-      memcpy(colhash->pPalette + 3 * colhash->cnt, colhash->hashTable + 3 * j, 3);
-      indexUsed_new[h] = 1;
-      frequ_new[h] = colhash->frequ[j];
-      colhash->colIdx[h] = colhash->cnt;
-      ++(colhash->cnt);
-    }
-  }
-  colhash->tableSize = tableSizeNew;
-  free(colhash->hashTable); // free part of old hash table that is not used anymore
-  free(colhash->indexUsed); // free part of old hash table that is not used anymore
-  free(colhash->frequ); // free part of old hash table that is not used anymore
-  colhash->hashTable = hashTable_new; // pass pointer to new hash table
-  colhash->indexUsed = indexUsed_new; // pass pointer to new hash table
-  colhash->frequ = frequ_new; // pass pointer to new hash table
-}
+/* increase the size of the color hash table */\r\nstatic int resize_col_hash_table(colHashTable* colhash){\r\n  uint32_t tableSizeNew;\r\n  uint8_t* pPaletteNew;\r\n  uint32_t* colIdxNew;\r\n  tableSizeNew  = getNextPrimePower2(colhash->tableSize); // increase table size to the next prime number above the next power of two\r\n  pPaletteNew   = realloc(colhash->pPalette, 3 * tableSizeNew);\r\n  if(pPaletteNew == NULL) {\r\n    return -1; // allocation failed\r\n  }\r\n  colhash->pPalette = pPaletteNew;\r\n  colIdxNew = realloc(colhash->colIdx, sizeof(uint32_t) * tableSizeNew);\r\n  if(colIdxNew == NULL) {\r\n    return -1; // allocation failed\r\n  }\r\n  colhash->colIdx = colIdxNew;\r\n  uint8_t* hashTable_new = malloc(3 * tableSizeNew);\r\n  uint8_t* indexUsed_new = malloc(tableSizeNew);\r\n  uint32_t* frequ_new = malloc(sizeof(uint32_t) * tableSizeNew);\r\n  if(hashTable_new == NULL || indexUsed_new == NULL || frequ_new == NULL) {\r\n    free(hashTable_new);\r\n    free(indexUsed_new);\r\n    free(frequ_new);\r\n    return -1; // allocation failed\r\n  }\r\n  memset(indexUsed_new, 0, tableSizeNew);\r\n  colhash->cnt = 0;\r\n  for(uint32_t j = 0; j < colhash->tableSize; ++j) { // TBD (no improvement when tested): easier to loop over pPalette and also leave pPalette in place?, if indexUsed is also unnecessary then\r\n    if(colhash->indexUsed[j] == 1){\r\n      uint32_t h = col_hash(colhash->hashTable + 3 * j, hashTable_new, indexUsed_new, tableSizeNew, 3); // recompute hash with new table size\r\n      memcpy(&hashTable_new[3 * h], colhash->hashTable + 3 * j, 3); // put value from old hash table to right position of the new one\r\n      memcpy(colhash->pPalette + 3 * colhash->cnt, colhash->hashTable + 3 * j, 3);\r\n      indexUsed_new[h] = 1;\r\n      frequ_new[h] = colhash->frequ[j];\r\n      colhash->colIdx[h] = colhash->cnt;\r\n      ++(colhash->cnt);\r\n    }\r\n  }\r\n  colhash->tableSize = tableSizeNew;\r\n  free(colhash->hashTable); // free part of old hash table that is not used anymore\r\n  free(colhash->indexUsed); // free part of old hash table that is not used anymore\r\n  free(colhash->frequ); // free part of old hash table that is not used anymore\r\n  colhash->hashTable = hashTable_new; // pass pointer to new hash table\r\n  colhash->indexUsed = indexUsed_new; // pass pointer to new hash table\r\n  colhash->frequ = frequ_new; // pass pointer to new hash table\r\n  return 0; // success\r\n}
 
 /* take frequ indexed by hash(rgb) and return corresponding dense array */
 static uint32_t* hash_to_dense(colHashTable* colhash, cgif_chan_fmt fmtChan) {
@@ -323,6 +294,9 @@ static uint8_t get_leave_node_index(const treeNode* root, const float* rgb) {
     return root->colIdx; // return color index of leave node
   }
 }
+
+/* forward declaration */
+static void free_decision_tree(treeNode* root);
 
 /* color quantization with mean cut method (TBD? switch to median cut)
    (works with dense palette, no hash table) */
