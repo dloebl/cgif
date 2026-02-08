@@ -129,12 +129,26 @@ static int32_t col_hash_collision_count(const uint8_t* rgb, const uint8_t* hashT
 /* initialize hash table storing colors and their frequency */
 static colHashTable* init_col_hash_table(uint32_t tableSize){
   colHashTable* colhash = malloc(sizeof(colHashTable));
+  if(colhash == NULL) {
+    return NULL;
+  }
   colhash->tableSize = getNextPrimePower2(tableSize); // increase table size to next prime number
   colhash->frequ = malloc(sizeof(uint32_t) * colhash->tableSize);
   colhash->hashTable = malloc(3 * colhash->tableSize);
   colhash->indexUsed = malloc(colhash->tableSize);
   colhash->pPalette = malloc(3 * colhash->tableSize);
   colhash->colIdx = malloc(sizeof(uint32_t)*colhash->tableSize);
+  // check if any allocation failed
+  if(colhash->frequ == NULL || colhash->hashTable == NULL || colhash->indexUsed == NULL || 
+     colhash->pPalette == NULL || colhash->colIdx == NULL) {
+    free(colhash->frequ);
+    free(colhash->hashTable);
+    free(colhash->indexUsed);
+    free(colhash->pPalette);
+    free(colhash->colIdx);
+    free(colhash);
+    return NULL;
+  }
   colhash->cnt = 0;                                      // no colors initially
   memset(colhash->pPalette, 0, 3 * colhash->tableSize);  // unused part of color table is uninitialized otheriwse
   memset(colhash->indexUsed, 0, colhash->tableSize);     // initially no entry in hash-table is used
@@ -152,14 +166,30 @@ static void free_col_hash_table(colHashTable* colhash){
 }
 
 /* increase the size of the color hash table */
-static void resize_col_hash_table(colHashTable* colhash){
+static int resize_col_hash_table(colHashTable* colhash){
   uint32_t tableSizeNew;
+  uint8_t* pPaletteNew;
+  uint32_t* colIdxNew;
   tableSizeNew  = getNextPrimePower2(colhash->tableSize); // increase table size to the next prime number above the next power of two
-  colhash->pPalette      = realloc(colhash->pPalette, 3 * tableSizeNew);
-  colhash->colIdx        = realloc(colhash->colIdx, sizeof(uint32_t) * tableSizeNew);
+  pPaletteNew   = realloc(colhash->pPalette, 3 * tableSizeNew);
+  if(pPaletteNew == NULL) {
+    return -1; // allocation failed
+  }
+  colhash->pPalette = pPaletteNew;
+  colIdxNew = realloc(colhash->colIdx, sizeof(uint32_t) * tableSizeNew);
+  if(colIdxNew == NULL) {
+    return -1; // allocation failed
+  }
+  colhash->colIdx = colIdxNew;
   uint8_t* hashTable_new = malloc(3 * tableSizeNew);
   uint8_t* indexUsed_new = malloc(tableSizeNew);
   uint32_t* frequ_new = malloc(sizeof(uint32_t) * tableSizeNew);
+  if(hashTable_new == NULL || indexUsed_new == NULL || frequ_new == NULL) {
+    free(hashTable_new);
+    free(indexUsed_new);
+    free(frequ_new);
+    return -1; // allocation failed
+  }
   memset(indexUsed_new, 0, tableSizeNew);
   colhash->cnt = 0;
   for(uint32_t j = 0; j < colhash->tableSize; ++j) { // TBD (no improvement when tested): easier to loop over pPalette and also leave pPalette in place?, if indexUsed is also unnecessary then
@@ -180,6 +210,7 @@ static void resize_col_hash_table(colHashTable* colhash){
   colhash->hashTable = hashTable_new; // pass pointer to new hash table
   colhash->indexUsed = indexUsed_new; // pass pointer to new hash table
   colhash->frequ = frequ_new; // pass pointer to new hash table
+  return 0; // success
 }
 
 /* take frequ indexed by hash(rgb) and return corresponding dense array */
@@ -243,6 +274,9 @@ static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* num
   float var[3];
 
   treeNode* node = malloc(sizeof(treeNode));
+  if(node == NULL) {
+    return NULL; // allocation failed
+  }
   node->idxMin   = idxMin; // minimum color in pPalette belonging to the node
   node->idxMax   = idxMax; // maximum color in pPalette belonging to the node
   get_variance(pPalette, frequ, idxMin, idxMax, var, node->mean);
@@ -259,7 +293,7 @@ static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t
   uint16_t nodeIdx = 0;
   uint8_t saveBlk[3];
   treeNode* parent;
-  treeNode* nodeList[512]; // array of pointers to nodes for breadth-first tree traversal
+  treeNode* nodeList[1024]; // array of pointers to nodes for breadth-first tree traversal (increased from 512 for safety)
   nodeList[0] = root;
 
   while(*numLeaveNodes <= (colMax - 1)){
@@ -449,7 +483,7 @@ static colHashTable* get_color_histogram(const uint8_t* pImageDataRGB, uint32_t 
   *pHasAlpha = 0;                                           // assume no alpha channel until it is found
   const uint8_t sizePixel = fmtChan;                        // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
   for(uint32_t i = 0; i < numPixel; ++i) {
-    uint32_t h = col_hash_collision_count(&pImageDataRGB[sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan, &cntCollision);
+    int32_t h = col_hash_collision_count(&pImageDataRGB[sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan, &cntCollision);
     if(h == -1) { // -1 means that the user has set a user-defined transparency (alpha channel)
       *pHasAlpha = 1;
       continue; // do not take this pixel into account (e.g. alpha channel present)
@@ -473,7 +507,7 @@ static colHashTable* get_color_histogram(const uint8_t* pImageDataRGB, uint32_t 
 }
 
 /* quantize the image using the color histogram */
-static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t width, cgif_chan_fmt fmtChan, uint8_t* pImageData, uint8_t* pPalette256, uint8_t depthMax, uint8_t dithering, int hasAlpha, uint8_t* pBef, cgif_chan_fmt befFmtChan) {
+static int quantize_and_dither(colHashTable* colhash, const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t width, cgif_chan_fmt fmtChan, uint8_t* pImageData, uint8_t* pPalette256, uint8_t depthMax, uint8_t dithering, int hasAlpha, uint8_t* pBef, cgif_chan_fmt befFmtChan, uint32_t* pNumColors) {
   // pImageDataRGB: image in RGB format
   // numPixel: number of pixels of input image
   // width: width of the image (needed for dithering)
@@ -484,13 +518,24 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
   // dithering: 0 (no dithering), 1: Floyd-Steinberg dithering, else: Sierra dithering
   // hasAlpha: alpha channel present 1, 0 otheriwse
   // pBef, befFmtChan
+  // pNumColors: output parameter for the number of colors
   const uint8_t sizePixel = fmtChan; // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
   const uint16_t colMax = (1uL << depthMax) - 1; // maximum number of colors (-1 to leave space for transparency), disadvantage (TBD): quantization for static image with 256 colors and no alpha channel unnecessary
   if(colhash->cnt > colMax) { // color-quantization is needed
     uint32_t* pFrequDense = hash_to_dense(colhash, fmtChan);
-    treeNode* root        = create_decision_tree(colhash->pPalette, pFrequDense, pPalette256, colhash->cnt, colMax, depthMax); // create decision tree (dynamic, splits along rgb-dimension with highest variance)
+    if(pFrequDense == NULL) {
+      return -1; // allocation failed
+    }
+    treeNode* root = create_decision_tree(colhash->pPalette, pFrequDense, pPalette256, colhash->cnt, colMax, depthMax); // create decision tree (dynamic, splits along rgb-dimension with highest variance)
     free(pFrequDense);
+    if(root == NULL) {
+      return -1; // allocation failed in decision tree creation
+    }
     float* pImageDataRGBfloat = malloc(fmtChan * numPixel * sizeof(float)); // TBD fmtChan + only when hasAlpha
+    if(pImageDataRGBfloat == NULL) {
+      free_decision_tree(root);
+      return -1; // allocation failed
+    }
     for(uint32_t i = 0; i < fmtChan * numPixel; ++i){
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
@@ -508,12 +553,13 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
           continue;
         }
       }
-      uint32_t h = col_hash(&pImageDataRGB[sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan);
+      int32_t h = col_hash(&pImageDataRGB[sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan);
       pImageData[i] = (h == -1) ? transIndex : colhash->colIdx[h];
     }
     memcpy(pPalette256, colhash->pPalette, 3 * 256); // keep the color palette (no quantization)
   }
-  return colhash->cnt; // return number of colors found
+  *pNumColors = colhash->cnt; // return number of colors found via output parameter
+  return 0; // success
 }
 
 CGIFrgb* cgif_rgb_newgif(const CGIFrgb_Config* pConfig) {
@@ -521,6 +567,9 @@ CGIFrgb* cgif_rgb_newgif(const CGIFrgb_Config* pConfig) {
   CGIFrgb* pGIFrgb;
   
   pGIFrgb = malloc(sizeof(CGIFrgb));
+  if(pGIFrgb == NULL) {
+    return NULL; // allocation failed
+  }
   memset(pGIFrgb, 0, sizeof(CGIFrgb));
   idxConfig.pWriteFn  = pConfig->pWriteFn;
   idxConfig.pContext  = pConfig->pContext;
@@ -548,6 +597,7 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
   const uint16_t   imageHeight = pGIF->config.height;
   const uint32_t   numPixel    = MULU16(imageWidth, imageHeight);
   int              hasAlpha;
+  uint32_t         sizeLCT;
   // check for previous errors
   if(pGIF->curResult != CGIF_OK && pGIF->curResult != CGIF_PENDING) {
     return pGIF->curResult;
@@ -558,9 +608,18 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
     return CGIF_ERROR;
   }
   pNewBef = malloc(pConfig->fmtChan * MULU16(imageWidth, imageHeight));
+  if(pNewBef == NULL) {
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
   memcpy(pNewBef, pConfig->pImageData, pConfig->fmtChan * MULU16(imageWidth, imageHeight));
   fConfig.pLocalPalette = aPalette;
   fConfig.pImageData    = malloc(pGIF->config.width * (uint32_t)pGIF->config.height);
+  if(fConfig.pImageData == NULL) {
+    free(pNewBef);
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
   fConfig.delay         = pConfig->delay;
   fConfig.attrFlags     = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
   if(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_INTERLACED) {
@@ -568,9 +627,22 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
   }
 
   colHashTable* colhash = get_color_histogram(pConfig->pImageData, numPixel, pConfig->fmtChan, &hasAlpha);
+  if(colhash == NULL) {
+    free(pNewBef);
+    free(fConfig.pImageData);
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
   const uint8_t bDither = !(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_NO_DITHERING);
-  const int sizeLCT = quantize_and_dither(colhash, pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, bDither, hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
+  int quantResult = quantize_and_dither(colhash, pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, bDither, hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan, &sizeLCT);
   free_col_hash_table(colhash);
+
+  if(quantResult != 0) {
+    free(pNewBef);
+    free(fConfig.pImageData);
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
 
   fConfig.numLocalPaletteEntries = sizeLCT;
   if(hasAlpha) {
