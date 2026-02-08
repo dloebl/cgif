@@ -102,6 +102,13 @@ CGIF* cgif_newgif(CGIF_Config* pConfig) {
   // make a deep copy of global color tabele (GCT), if required.
   if((pConfig->attrFlags & CGIF_ATTR_NO_GLOBAL_TABLE) == 0) {
     pGIF->config.pGlobalPalette = malloc(pConfig->numGlobalPaletteEntries * 3);
+    if(pGIF->config.pGlobalPalette == NULL) {
+      if(pFile) {
+        fclose(pFile);
+      }
+      free(pGIF);
+      return NULL;
+    }
     memcpy(pGIF->config.pGlobalPalette, pConfig->pGlobalPalette, pConfig->numGlobalPaletteEntries * 3);
   }
 
@@ -333,7 +340,10 @@ static uint8_t* doWidthHeightOptim(CGIF* pGIF, CGIF_FrameConfig* pCur, CGIF_Fram
   }
 
   // create new image data
-  pNewImageData = malloc(MULU16(pResult->width, pResult->height)); // TBD check return value of malloc
+  pNewImageData = malloc(MULU16(pResult->width, pResult->height));
+  if(pNewImageData == NULL) {
+    return NULL; // allocation failed
+  }
   for (i = 0; i < pResult->height; ++i) {
     memcpy(pNewImageData + MULU16(i, pResult->width), pCurImageData + MULU16((i + pResult->top), width) + pResult->left, pResult->width);
   }
@@ -381,6 +391,9 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
   // purge overlap of current frame and frame before (width - height optim), if required (CGIF_FRAME_GEN_USE_DIFF_WINDOW set)
   if(pCur->config.genFlags & CGIF_FRAME_GEN_USE_DIFF_WINDOW) {
     pTmpImageData = doWidthHeightOptim(pGIF, &pCur->config, &pBef->config, &dimResult);
+    if(pTmpImageData == NULL) {
+      return CGIF_EALLOC; // allocation failed in doWidthHeightOptim
+    }
     width  = dimResult.width;
     height = dimResult.height;
     top    = dimResult.top;
@@ -403,7 +416,10 @@ static cgif_result flushFrame(CGIF* pGIF, CGIF_Frame* pCur, CGIF_Frame* pBef) {
       transIndex = (1 << (pow2 + 1)) - 1;
     }
     if(pTmpImageData == NULL) {
-      pTmpImageData = malloc(MULU16(imageWidth, imageHeight)); // TBD check return value of malloc
+      pTmpImageData = malloc(MULU16(imageWidth, imageHeight));
+      if(pTmpImageData == NULL) {
+        return CGIF_EALLOC; // allocation failed
+      }
       memcpy(pTmpImageData, pCur->config.pImageData, MULU16(imageWidth, imageHeight));
     }
     pBefImageData = pBef->config.pImageData;
@@ -537,12 +553,27 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   }
   // create new Frame struct + make a deep copy of pConfig.
   pNewFrame = malloc(sizeof(CGIF_Frame));
+  if(pNewFrame == NULL) {
+    pGIF->curResult = CGIF_EALLOC;
+    return pGIF->curResult;
+  }
   copyFrameConfig(&(pNewFrame->config), pConfig);
   pNewFrame->config.pImageData = malloc(MULU16(pGIF->config.width, pGIF->config.height));
+  if(pNewFrame->config.pImageData == NULL) {
+    free(pNewFrame);
+    pGIF->curResult = CGIF_EALLOC;
+    return pGIF->curResult;
+  }
   memcpy(pNewFrame->config.pImageData, pConfig->pImageData, MULU16(pGIF->config.width, pGIF->config.height));
   // make a deep copy of the local color table, if required.
   if(pConfig->attrFlags & CGIF_FRAME_ATTR_USE_LOCAL_TABLE) {
     pNewFrame->config.pLocalPalette  = malloc(pConfig->numLocalPaletteEntries * 3);
+    if(pNewFrame->config.pLocalPalette == NULL) {
+      free(pNewFrame->config.pImageData);
+      free(pNewFrame);
+      pGIF->curResult = CGIF_EALLOC;
+      return pGIF->curResult;
+    }
     memcpy(pNewFrame->config.pLocalPalette, pConfig->pLocalPalette, pConfig->numLocalPaletteEntries * 3);
   }
   pNewFrame->disposalMethod        = DISPOSAL_METHOD_LEAVE;
