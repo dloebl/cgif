@@ -152,14 +152,41 @@ static void free_col_hash_table(colHashTable* colhash){
 }
 
 /* increase the size of the color hash table */
-static void resize_col_hash_table(colHashTable* colhash){
+static int resize_col_hash_table(colHashTable* colhash){
   uint32_t tableSizeNew;
+  uint8_t* pPalette_new;
+  uint32_t* colIdx_new;
+  uint8_t* hashTable_new;
+  uint8_t* indexUsed_new;
+  uint32_t* frequ_new;
+
   tableSizeNew  = getNextPrimePower2(colhash->tableSize); // increase table size to the next prime number above the next power of two
-  colhash->pPalette      = realloc(colhash->pPalette, 3 * tableSizeNew);
-  colhash->colIdx        = realloc(colhash->colIdx, sizeof(uint32_t) * tableSizeNew);
-  uint8_t* hashTable_new = malloc(3 * tableSizeNew);
-  uint8_t* indexUsed_new = malloc(tableSizeNew);
-  uint32_t* frequ_new = malloc(sizeof(uint32_t) * tableSizeNew);
+  
+  // Use temporary pointers for realloc to avoid memory leaks on failure
+  pPalette_new = realloc(colhash->pPalette, 3 * tableSizeNew);
+  if(pPalette_new == NULL) {
+    return -1; // allocation failed, original pointer preserved
+  }
+  colhash->pPalette = pPalette_new;
+
+  colIdx_new = realloc(colhash->colIdx, sizeof(uint32_t) * tableSizeNew);
+  if(colIdx_new == NULL) {
+    return -1; // allocation failed, original pointer preserved
+  }
+  colhash->colIdx = colIdx_new;
+
+  hashTable_new = malloc(3 * tableSizeNew);
+  indexUsed_new = malloc(tableSizeNew);
+  frequ_new = malloc(sizeof(uint32_t) * tableSizeNew);
+  
+  // Check all malloc allocations
+  if(hashTable_new == NULL || indexUsed_new == NULL || frequ_new == NULL) {
+    free(hashTable_new);
+    free(indexUsed_new);
+    free(frequ_new);
+    return -1; // allocation failed
+  }
+
   memset(indexUsed_new, 0, tableSizeNew);
   colhash->cnt = 0;
   for(uint32_t j = 0; j < colhash->tableSize; ++j) { // TBD (no improvement when tested): easier to loop over pPalette and also leave pPalette in place?, if indexUsed is also unnecessary then
@@ -180,6 +207,7 @@ static void resize_col_hash_table(colHashTable* colhash){
   colhash->hashTable = hashTable_new; // pass pointer to new hash table
   colhash->indexUsed = indexUsed_new; // pass pointer to new hash table
   colhash->frequ = frequ_new; // pass pointer to new hash table
+  return 0; // success
 }
 
 /* take frequ indexed by hash(rgb) and return corresponding dense array */
@@ -466,7 +494,9 @@ static colHashTable* get_color_histogram(const uint8_t* pImageDataRGB, uint32_t 
     }
     // resize the hash table (if more than half-full)
     if((colhash->cnt > (colhash->tableSize >> 1) || cntCollision > MAX_COLLISIONS) && colhash->tableSize < MAX_TABLE_SIZE) {
-      resize_col_hash_table(colhash);
+      if(resize_col_hash_table(colhash) != 0) {
+        break; // allocation failed, stop processing
+      }
     }
   }
   return colhash;
