@@ -59,6 +59,7 @@ int main(void) {
     fConfig.pImageData = aImageData;
     fConfig.width      = WIDTH;
     fConfig.height     = HEIGHT;
+    fConfig.attrFlags  = CGIF_RAW_FRAME_ATTR_INTERLACED;
 
     fail_after  = n;
     malloc_count = 0;
