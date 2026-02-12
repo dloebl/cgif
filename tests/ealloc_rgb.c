@@ -8,8 +8,15 @@
 #include "cgif.h"
 #include "cgif_raw.h"
 
-#define WIDTH  2
-#define HEIGHT 2
+/*
+ * 18x16 = 288 pixels with >255 unique colors to trigger color quantization.
+ * The first 32 colors are crafted to trigger resize_col_hash_table via the
+ * collision path (>30 collisions): colors (0,0,0)..(0,0,30) occupy consecutive
+ * hash slots, then (8,0,21) hashes to the same slot as (0,0,0) causing 31
+ * collisions.
+ */
+#define WIDTH  18
+#define HEIGHT 16
 
 /* malloc/realloc failure injection */
 static int fail_after   = 0;
@@ -55,17 +62,37 @@ static int writeFn(void* pContext, const uint8_t* pData, const size_t numBytes) 
   return 0;
 }
 
+static void initImageData(uint8_t* p, int numPixels) {
+  int i = 0;
+  // first 31 pixels: (0,0,0)..(0,0,30) -- occupy consecutive hash slots
+  for(; i < 31 && i < numPixels; ++i) {
+    p[3 * i + 0] = 0;
+    p[3 * i + 1] = 0;
+    p[3 * i + 2] = i;
+  }
+  // 32nd pixel: (8,0,21) -- hashes to slot 0 (8*65536+21 = 524309 = tableSize),
+  // causing 31 collisions which triggers resize_col_hash_table
+  if(i < numPixels) {
+    p[3 * i + 0] = 8;
+    p[3 * i + 1] = 0;
+    p[3 * i + 2] = 21;
+    ++i;
+  }
+  // remaining pixels: unique colors starting from (31,0,0)
+  for(int c = 31; i < numPixels; ++i, ++c) {
+    p[3 * i + 0] = (c >> 0) & 0xFF;
+    p[3 * i + 1] = (c >> 8) & 0xFF;
+    p[3 * i + 2] = 0;
+  }
+}
+
 int main(void) {
   CGIFrgb*            pGIF;
   CGIFrgb_Config      gConfig;
   CGIFrgb_FrameConfig fConfig;
   cgif_result         r;
-  uint8_t aImageData[] = {
-    0xFF, 0x00, 0x00, // red
-    0x00, 0xFF, 0x00, // green
-    0x00, 0x00, 0xFF, // blue
-    0xFF, 0xFF, 0x00, // yellow
-  };
+  uint8_t             aImageData[WIDTH * HEIGHT * 3];
+  initImageData(aImageData, WIDTH * HEIGHT);
 
   for(int n = 1; ; ++n) {
     memset(&gConfig, 0, sizeof(gConfig));
@@ -76,6 +103,7 @@ int main(void) {
 
     fConfig.pImageData = aImageData;
     fConfig.fmtChan    = CGIF_CHAN_FMT_RGB;
+    fConfig.attrFlags  = CGIF_RGB_FRAME_ATTR_INTERLACED;
 
     fail_after  = n;
     malloc_count = 0;
