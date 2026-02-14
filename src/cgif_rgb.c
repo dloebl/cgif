@@ -129,6 +129,9 @@ static int32_t col_hash_collision_count(const uint8_t* rgb, const uint8_t* hashT
 /* initialize hash table storing colors and their frequency */
 static colHashTable* init_col_hash_table(uint32_t tableSize){
   colHashTable* colhash = malloc(sizeof(colHashTable));
+  if (colhash == NULL) {
+    return NULL;
+  }
   colhash->tableSize = getNextPrimePower2(tableSize); // increase table size to next prime number
   colhash->frequ = malloc(sizeof(uint32_t) * colhash->tableSize);
   colhash->hashTable = malloc(3 * colhash->tableSize);
@@ -157,9 +160,18 @@ static void resize_col_hash_table(colHashTable* colhash){
   tableSizeNew  = getNextPrimePower2(colhash->tableSize); // increase table size to the next prime number above the next power of two
   colhash->pPalette      = realloc(colhash->pPalette, 3 * tableSizeNew);
   colhash->colIdx        = realloc(colhash->colIdx, sizeof(uint32_t) * tableSizeNew);
+  if (colhash->pPalette == NULL || colhash->colIdx == NULL) {
+    return; // realloc failed
+  }
   uint8_t* hashTable_new = malloc(3 * tableSizeNew);
   uint8_t* indexUsed_new = malloc(tableSizeNew);
   uint32_t* frequ_new = malloc(sizeof(uint32_t) * tableSizeNew);
+  if (hashTable_new == NULL || indexUsed_new == NULL || frequ_new == NULL) {
+    free(hashTable_new);
+    free(indexUsed_new);
+    free(frequ_new);
+    return; // malloc failed
+  }
   memset(indexUsed_new, 0, tableSizeNew);
   colhash->cnt = 0;
   for(uint32_t j = 0; j < colhash->tableSize; ++j) { // TBD (no improvement when tested): easier to loop over pPalette and also leave pPalette in place?, if indexUsed is also unnecessary then
@@ -185,6 +197,9 @@ static void resize_col_hash_table(colHashTable* colhash){
 /* take frequ indexed by hash(rgb) and return corresponding dense array */
 static uint32_t* hash_to_dense(colHashTable* colhash, cgif_chan_fmt fmtChan) {
   uint32_t* frequDense = malloc(sizeof(uint32_t) * colhash->cnt);
+  if (frequDense == NULL) {
+    return NULL;
+  }
   uint32_t h;
   (void)fmtChan;
   for(uint32_t i = 0; i < colhash->cnt; ++i) {
@@ -243,6 +258,9 @@ static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* num
   float var[3];
 
   treeNode* node = malloc(sizeof(treeNode));
+  if (node == NULL) {
+    return NULL;
+  }
   node->idxMin   = idxMin; // minimum color in pPalette belonging to the node
   node->idxMax   = idxMax; // maximum color in pPalette belonging to the node
   get_variance(pPalette, frequ, idxMin, idxMax, var, node->mean);
@@ -491,6 +509,10 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
     treeNode* root        = create_decision_tree(colhash->pPalette, pFrequDense, pPalette256, colhash->cnt, colMax, depthMax); // create decision tree (dynamic, splits along rgb-dimension with highest variance)
     free(pFrequDense);
     float* pImageDataRGBfloat = malloc(fmtChan * numPixel * sizeof(float)); // TBD fmtChan + only when hasAlpha
+    if (pImageDataRGBfloat == NULL) {
+      free_decision_tree(root);
+      return 0;
+    }
     for(uint32_t i = 0; i < fmtChan * numPixel; ++i){
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
@@ -521,6 +543,9 @@ CGIFrgb* cgif_rgb_newgif(const CGIFrgb_Config* pConfig) {
   CGIFrgb* pGIFrgb;
   
   pGIFrgb = malloc(sizeof(CGIFrgb));
+  if (pGIFrgb == NULL) {
+    return NULL;
+  }
   memset(pGIFrgb, 0, sizeof(CGIFrgb));
   idxConfig.pWriteFn  = pConfig->pWriteFn;
   idxConfig.pContext  = pConfig->pContext;
@@ -558,9 +583,18 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
     return CGIF_ERROR;
   }
   pNewBef = malloc(pConfig->fmtChan * MULU16(imageWidth, imageHeight));
+  if (pNewBef == NULL) {
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
   memcpy(pNewBef, pConfig->pImageData, pConfig->fmtChan * MULU16(imageWidth, imageHeight));
   fConfig.pLocalPalette = aPalette;
   fConfig.pImageData    = malloc(pGIF->config.width * (uint32_t)pGIF->config.height);
+  if (fConfig.pImageData == NULL) {
+    free(pNewBef);
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
   fConfig.delay         = pConfig->delay;
   fConfig.attrFlags     = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
   if(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_INTERLACED) {
