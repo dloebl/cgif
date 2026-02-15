@@ -75,6 +75,14 @@ foreach t : tests_index + tests_rgb
   test(name, test_exe, priority : 0)
 endforeach
 
+# malloc failure tests (compile source directly to intercept malloc)
+test_ealloc_raw_exe = executable(
+  'test_ealloc_raw',
+  'ealloc_raw.c',
+  include_directories : ['../inc/'],
+)
+test('ealloc_raw', test_ealloc_raw_exe, priority : 0)
+
 sha256sumc = find_program('scripts/sha256sum.py')
 # get the ordering right:
 # md5sum check on output GIFs should be run once all of the above tests are done.

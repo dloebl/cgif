@@ -308,6 +308,7 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   if(pContext == NULL) {
     return CGIF_EALLOC;
   }
+  memset(pContext, 0, sizeof(LZWGenState));
   pContext->pTreeInit  = malloc((initDictLen * sizeof(uint16_t)) * initDictLen);
   if(pContext->pTreeInit == NULL) {
     r = CGIF_EALLOC;
