@@ -9,8 +9,8 @@
 #define HEIGHT 2
 
 /* malloc failure injection */
-static int fail_after   = 0;
-static int malloc_count = 0;
+static int fail_after;
+static int malloc_count;
 
 static void* cgif_test_malloc(size_t size) {
   if(fail_after > 0) {
@@ -47,7 +47,7 @@ int main(void) {
   uint8_t aImageData[WIDTH * HEIGHT];
   memset(aImageData, 0, sizeof(aImageData));
 
-  for(int n = 1; ; ++n) {
+  for(fail_after = 1; ; ++fail_after) {
     memset(&gConfig, 0, sizeof(gConfig));
     memset(&fConfig, 0, sizeof(fConfig));
     gConfig.pWriteFn = writeFn;
@@ -61,12 +61,11 @@ int main(void) {
     fConfig.height     = HEIGHT;
     fConfig.attrFlags  = CGIF_RAW_FRAME_ATTR_INTERLACED;
 
-    fail_after  = n;
     malloc_count = 0;
 
     pGIF = cgif_raw_newgif(&gConfig);
     if(pGIF == NULL) {
-      if(malloc_count >= n) {
+      if(malloc_count >= fail_after) {
         continue; // expected: our injected malloc failure
       }
       fputs("unexpected NULL from cgif_raw_newgif\n", stderr);
@@ -75,7 +74,7 @@ int main(void) {
 
     r = cgif_raw_addframe(pGIF, &fConfig);
     if(r != CGIF_OK) {
-      if(r == CGIF_EALLOC && malloc_count >= n) {
+      if(r == CGIF_EALLOC && malloc_count >= fail_after) {
         cgif_raw_close(pGIF);
         continue; // expected: our injected malloc failure
       }
@@ -84,7 +83,7 @@ int main(void) {
     }
 
     r = cgif_raw_close(pGIF);
-    if(malloc_count < n) {
+    if(malloc_count < fail_after) {
       // all mallocs succeeded without hitting our failure point -- done
       if(r != CGIF_OK) {
         fprintf(stderr, "unexpected error from cgif_raw_close: %d\n", r);
