@@ -91,6 +91,11 @@ int main(void) {
       }
       break;
     }
+    // our injected failure was hit during close (e.g. LZW encoding)
+    if(r != CGIF_EALLOC) {
+      fprintf(stderr, "expected CGIF_EALLOC from cgif_raw_close, got: %d (n=%d)\n", r, fail_after);
+      return 1;
+    }
   }
 
   return 0;

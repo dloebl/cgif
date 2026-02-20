@@ -10,8 +10,8 @@
 #define HEIGHT 2
 
 /* malloc failure injection */
-static int fail_after   = 0;
-static int malloc_count = 0;
+static int fail_after;
+static int malloc_count;
 
 static void* cgif_test_malloc(size_t size) {
   if(fail_after > 0) {
@@ -54,7 +54,7 @@ int main(void) {
   memset(aImageData0, 0, sizeof(aImageData0));
   memset(aImageData1, 1, sizeof(aImageData1));
 
-  for(int n = 1; ; ++n) {
+  for(fail_after = 1; ; ++fail_after) {
     memset(&gConfig, 0, sizeof(gConfig));
     gConfig.pWriteFn                = writeFn;
     gConfig.width                   = WIDTH;
@@ -63,12 +63,11 @@ int main(void) {
     gConfig.numGlobalPaletteEntries = 2;
     gConfig.attrFlags               = CGIF_ATTR_IS_ANIMATED;
 
-    fail_after  = n;
     malloc_count = 0;
 
     pGIF = cgif_newgif(&gConfig);
     if(pGIF == NULL) {
-      if(malloc_count >= n) {
+      if(malloc_count >= fail_after) {
         continue;
       }
       fputs("unexpected NULL from cgif_newgif\n", stderr);
@@ -83,7 +82,7 @@ int main(void) {
     fConfig.numLocalPaletteEntries = 2;
     r = cgif_addframe(pGIF, &fConfig);
     if(r != CGIF_OK) {
-      if(r == CGIF_EALLOC && malloc_count >= n) {
+      if(r == CGIF_EALLOC && malloc_count >= fail_after) {
         cgif_close(pGIF);
         continue;
       }
@@ -97,7 +96,7 @@ int main(void) {
     fConfig.genFlags   = CGIF_FRAME_GEN_USE_DIFF_WINDOW;
     r = cgif_addframe(pGIF, &fConfig);
     if(r != CGIF_OK) {
-      if(r == CGIF_EALLOC && malloc_count >= n) {
+      if(r == CGIF_EALLOC && malloc_count >= fail_after) {
         cgif_close(pGIF);
         continue;
       }
@@ -111,7 +110,7 @@ int main(void) {
     fConfig.genFlags   = CGIF_FRAME_GEN_USE_TRANSPARENCY;
     r = cgif_addframe(pGIF, &fConfig);
     if(r != CGIF_OK) {
-      if(r == CGIF_EALLOC && malloc_count >= n) {
+      if(r == CGIF_EALLOC && malloc_count >= fail_after) {
         cgif_close(pGIF);
         continue;
       }
@@ -120,7 +119,7 @@ int main(void) {
     }
 
     r = cgif_close(pGIF);
-    if(malloc_count < n) {
+    if(malloc_count < fail_after) {
       // all mallocs succeeded without hitting our failure point -- done
       if(r != CGIF_OK) {
         fprintf(stderr, "unexpected error from cgif_close: %d\n", r);
@@ -129,6 +128,10 @@ int main(void) {
       break;
     }
     // our injected failure was hit during close (e.g. LZW encoding)
+    if(r != CGIF_EALLOC) {
+      fprintf(stderr, "expected CGIF_EALLOC from cgif_close, got: %d (fail_after=%d)\n", r, fail_after);
+      return 1;
+    }
     continue;
   }
 
