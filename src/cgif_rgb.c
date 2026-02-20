@@ -169,7 +169,8 @@ static int resize_col_hash_table(colHashTable* colhash){
   uint8_t* indexUsed_new = malloc(tableSizeNew);
   uint32_t* frequ_new    = malloc(sizeof(uint32_t) * tableSizeNew);
   if(!pPaletteNew || !colIdxNew || !hashTable_new || !indexUsed_new || !frequ_new) {
-    // preserve old pointers on realloc failure
+    // On allocation failure, apply any successful reallocs to colhash and free
+    // any newly allocated auxiliary buffers before returning an error.
     if(pPaletteNew) colhash->pPalette = pPaletteNew;
     if(colIdxNew)   colhash->colIdx   = colIdxNew;
     free(hashTable_new);
