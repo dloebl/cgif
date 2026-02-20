@@ -19,8 +19,8 @@
 #define HEIGHT 16
 
 /* malloc/realloc failure injection */
-static int fail_after   = 0;
-static int malloc_count = 0;
+static int fail_after;
+static int malloc_count;
 
 static void* cgif_test_malloc(size_t size) {
   if(fail_after > 0) {
@@ -94,7 +94,7 @@ int main(void) {
   uint8_t             aImageData[WIDTH * HEIGHT * 3];
   initImageData(aImageData, WIDTH * HEIGHT);
 
-  for(int n = 1; ; ++n) {
+  for(fail_after = 1; ; ++fail_after) {
     memset(&gConfig, 0, sizeof(gConfig));
     memset(&fConfig, 0, sizeof(fConfig));
     gConfig.pWriteFn = writeFn;
@@ -105,12 +105,11 @@ int main(void) {
     fConfig.fmtChan    = CGIF_CHAN_FMT_RGB;
     fConfig.attrFlags  = CGIF_RGB_FRAME_ATTR_INTERLACED;
 
-    fail_after  = n;
     malloc_count = 0;
 
     pGIF = cgif_rgb_newgif(&gConfig);
     if(pGIF == NULL) {
-      if(malloc_count >= n) {
+      if(malloc_count >= fail_after) {
         continue; // expected: our injected malloc failure
       }
       fputs("unexpected NULL from cgif_rgb_newgif\n", stderr);
@@ -119,7 +118,7 @@ int main(void) {
 
     r = cgif_rgb_addframe(pGIF, &fConfig);
     if(r != CGIF_OK) {
-      if(r == CGIF_EALLOC && malloc_count >= n) {
+      if(r == CGIF_EALLOC && malloc_count >= fail_after) {
         cgif_rgb_close(pGIF);
         continue; // expected: our injected malloc failure
       }
@@ -128,7 +127,7 @@ int main(void) {
     }
 
     r = cgif_rgb_close(pGIF);
-    if(malloc_count < n) {
+    if(malloc_count < fail_after) {
       // all mallocs succeeded without hitting our failure point -- done
       if(r != CGIF_OK) {
         fprintf(stderr, "unexpected error from cgif_rgb_close: %d\n", r);
@@ -136,8 +135,11 @@ int main(void) {
       }
       break;
     }
-    // our injected failure was hit during close
-    continue;
+    // our injected failure was hit during close (e.g. LZW encoding)
+    if(r != CGIF_EALLOC) {
+      fprintf(stderr, "expected CGIF_EALLOC from cgif_rgb_close, got: %d (fail_after=%d)\n", r, fail_after);
+      return 1;
+    }
   }
 
   return 0;
