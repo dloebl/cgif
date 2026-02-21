@@ -259,7 +259,9 @@ static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t
   uint16_t nodeIdx = 0;
   uint8_t saveBlk[3];
   treeNode* parent;
-  treeNode* nodeList[512]; // array of pointers to nodes for breadth-first tree traversal
+  // a full binary tree with colMax leaves has at most 2*colMax-1 nodes total
+  treeNode** nodeList = malloc((2 * colMax - 1) * sizeof(treeNode*));
+  if(nodeList == NULL) return;
   nodeList[0] = root;
 
   while(*numLeaveNodes <= (colMax - 1)){
@@ -276,7 +278,6 @@ static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t
         memcpy(&(pPalette[3 * k]), saveBlk, 3);            // swap RGB-blocks in pPalette
         saveNum  = frequ[k];
         frequ[k] = frequ[i]; // swap also the frequency
-        frequ[i] = saveNum;  // sawp also the frequency
       }
     }
     parent->isLeave = 0; // parent is no leave node anymore when children added
@@ -287,6 +288,7 @@ static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t
     nodeList[2*(*numLeaveNodes) - 2] = parent->child1; // add new child nodes to the list (total number of nodes is always 2*(*numLeaveNodes)-1)
     }
   }
+  free(nodeList);
 }
 
 /* fill 256 color table using the decision tree */
