@@ -254,14 +254,14 @@ static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* num
 }
 
 /* create the decision tree. (Similar to qsort with limited depth: pPalette, frequ get sorted) */
-static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t* pPalette, uint32_t* frequ, uint16_t colMax) {
+static int crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t* pPalette, uint32_t* frequ, uint16_t colMax) {
   uint32_t i, k, saveNum;
   uint16_t nodeIdx = 0;
   uint8_t saveBlk[3];
   treeNode* parent;
   // a full binary tree with colMax leaves has at most 2*colMax-1 nodes total
   treeNode** nodeList = malloc((2 * colMax - 1) * sizeof(treeNode*));
-  if(nodeList == NULL) return;
+  if(nodeList == NULL) return -1; // signal allocation failure to caller
   nodeList[0] = root;
 
   while(*numLeaveNodes <= (colMax - 1)){
@@ -278,6 +278,7 @@ static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t
         memcpy(&(pPalette[3 * k]), saveBlk, 3);            // swap RGB-blocks in pPalette
         saveNum  = frequ[k];
         frequ[k] = frequ[i]; // swap also the frequency
+        frequ[i] = saveNum;  // swap also the frequency
       }
     }
     parent->isLeave = 0; // parent is no leave node anymore when children added
@@ -289,6 +290,7 @@ static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t
     }
   }
   free(nodeList);
+  return 0;
 }
 
 /* fill 256 color table using the decision tree */
@@ -321,7 +323,10 @@ static uint8_t get_leave_node_index(const treeNode* root, const float* rgb) {
 static treeNode* create_decision_tree(uint8_t* pPalette,  uint32_t* pFrequDense, uint8_t* pPalette256, uint32_t cnt, uint16_t colMax, uint8_t depthMax){
   uint16_t numLeaveNodes = 0;
   treeNode* root = new_tree_node(pPalette, pFrequDense, &numLeaveNodes, 0, cnt - 1, 0);
-  crawl_decision_tree(root, &numLeaveNodes, pPalette, pFrequDense, colMax);
+  if(crawl_decision_tree(root, &numLeaveNodes, pPalette, pFrequDense, colMax) != 0) {
+    free_decision_tree(root); // tree construction failed; free partial tree
+    return NULL;
+  }
   get_palette_from_decision_tree(root, pPalette256); // fill the reduced color table
   return root;
 }
