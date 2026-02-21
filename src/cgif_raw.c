@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #include "cgif_raw.h"
 
@@ -45,6 +46,7 @@ typedef struct {
   uint16_t*       pTreeList;  // LZW dictionary tree as list (max. number of children per node = 1)
   uint16_t*       pTreeMap;   // LZW dictionary tree as map (backup to pTreeList in case more than 1 child is present)
   uint16_t*       pLZWData;   // pointer to LZW data
+  size_t          lzwCapacity; // number of entries allocated in pLZWData
   const uint8_t*  pImageData; // pointer to image data
   uint32_t        numPixel;   // number of pixels per frame
   uint32_t        LZWPos;     // position of the current LZW code
@@ -85,14 +87,18 @@ static uint8_t calcInitCodeLen(uint16_t numEntries) {
 }
 
 /* reset the dictionary of known LZW codes -- will reset the current code length as well */
-static void resetDict(LZWGenState* pContext, const uint16_t initDictLen) {
+static int resetDict(LZWGenState* pContext, const uint16_t initDictLen) {
   pContext->dictPos                    = initDictLen + 2;                             // reset current position in dictionary (number of colors + 2 for start and end code)
   pContext->mapPos                     = 1;
+  if(pContext->LZWPos >= pContext->lzwCapacity) {
+    return CGIF_EALLOC;
+  }
   pContext->pLZWData[pContext->LZWPos] = initDictLen;                                 // issue clear-code
   ++(pContext->LZWPos);                                                               // increment position in LZW data
   // reset LZW list
   memset(pContext->pTreeInit, 0, initDictLen * sizeof(uint16_t) * initDictLen);
   memset(pContext->pTreeList, 0, ((sizeof(uint16_t) * 2) + sizeof(uint16_t)) * MAX_DICT_LEN);
+  return CGIF_OK;
 }
 
 /* add new child node */
@@ -146,13 +152,19 @@ static int lzw_crawl_tree(LZWGenState* pContext, uint32_t* pStrPos, uint16_t par
       parentIndex = nextParent;
       ++strPos;
     } else {
+      if(pContext->LZWPos >= pContext->lzwCapacity) {
+        return CGIF_EALLOC;
+      }
       pContext->pLZWData[pContext->LZWPos] = parentIndex; // write last LZW code in LZW data
       ++(pContext->LZWPos);
       if(pContext->dictPos < MAX_DICT_LEN) {
         pTreeInit[parentIndex * initDictLen + pContext->pImageData[strPos + 1]] = pContext->dictPos;
         ++(pContext->dictPos);
       } else {
-        resetDict(pContext, initDictLen);
+        const int rReset = resetDict(pContext, initDictLen);
+        if(rReset != CGIF_OK) {
+          return rReset;
+        }
       }
       ++strPos;
       *pStrPos = strPos;
@@ -181,17 +193,26 @@ static int lzw_crawl_tree(LZWGenState* pContext, uint32_t* pStrPos, uint16_t par
       }
     }
     // still not found child? add current parentIndex to LZW data and add new child
+    if(pContext->LZWPos >= pContext->lzwCapacity) {
+      return CGIF_EALLOC;
+    }
     pContext->pLZWData[pContext->LZWPos] = parentIndex; // write last LZW code in LZW data
     ++(pContext->LZWPos);
     if(pContext->dictPos < MAX_DICT_LEN) { // if LZW-dictionary is not full yet
       add_child(pContext, parentIndex, pContext->dictPos, initDictLen, pContext->pImageData[strPos + 1]); // add new LZW code to dictionary
     } else {
       // the dictionary reached its maximum code => reset it (not required by GIF-standard but mostly done like this)
-      resetDict(pContext, initDictLen);
+      const int rReset = resetDict(pContext, initDictLen);
+      if(rReset != CGIF_OK) {
+        return rReset;
+      }
     }
     ++strPos;
     *pStrPos = strPos;
     return CGIF_OK;
+  }
+  if(pContext->LZWPos >= pContext->lzwCapacity) {
+    return CGIF_EALLOC;
   }
   pContext->pLZWData[pContext->LZWPos] = parentIndex; // if the end of the image is reached, write last LZW code
   ++(pContext->LZWPos);
@@ -207,7 +228,10 @@ static int lzw_generate(LZWGenState* pContext, uint16_t initDictLen) {
   uint8_t  parentIndex;
 
   strPos = 0;                                                                          // start at beginning of the image data
-  resetDict(pContext, initDictLen);                                            // reset dictionary and issue clear-code at first
+  r = resetDict(pContext, initDictLen);                                            // reset dictionary and issue clear-code at first
+  if(r != CGIF_OK) {
+    return r;
+  }
   while(strPos < pContext->numPixel) {                                                 // while there are still image data to be encoded
     parentIndex  = pContext->pImageData[strPos];                                       // start at root node
     // get longest sequence that is still in dictionary, return new position in image data
@@ -215,6 +239,9 @@ static int lzw_generate(LZWGenState* pContext, uint16_t initDictLen) {
     if(r != CGIF_OK) {
       return r; // error: return error code to callee
     }
+  }
+  if(pContext->LZWPos >= pContext->lzwCapacity) {
+    return CGIF_EALLOC;
   }
   pContext->pLZWData[pContext->LZWPos] = initDictLen + 1; // termination code
   ++(pContext->LZWPos);
@@ -330,11 +357,26 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   // where N = max dictionary resets = numPixel / (MAX_DICT_LEN - initDictLen - 2)
   entriesPerCycle = MAX_DICT_LEN - initDictLen - 2; // maximum added number of dictionary entries per cycle: -2 to account for start and end code
   maxResets = numPixel / entriesPerCycle;
-  pContext->pLZWData   = malloc(sizeof(uint16_t) * (numPixel + 2 + maxResets));
+  size_t neededEntries = (size_t)numPixel + 2u;
+  if(neededEntries < (size_t)numPixel) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
+  neededEntries += (size_t)maxResets;
+  if(neededEntries < (size_t)maxResets) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
+  if(neededEntries > (SIZE_MAX / sizeof(uint16_t))) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
+  pContext->pLZWData   = malloc(neededEntries * sizeof(uint16_t));
   if(pContext->pLZWData == NULL) {
     r = CGIF_EALLOC;
     goto LZWGENERATE_Cleanup;
   }
+  pContext->lzwCapacity = neededEntries;
   pContext->LZWPos     = 0;
 
   // actually generate the LZW sequence.
