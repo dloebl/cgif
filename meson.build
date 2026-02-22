@@ -1,7 +1,7 @@
 project(
   'libcgif',
   'c',
-  version : '0.5.1',
+  version : '0.5.2',
   meson_version: '>=0.56',
   license : 'MIT',
   default_options : ['c_std=c99'],
