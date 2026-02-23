@@ -550,6 +550,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
     // keep the flushed frame in memory, as we might need it to write the next one.
     pGIF->aFrames[0] = pGIF->aFrames[1];
     pGIF->aFrames[1] = pGIF->aFrames[2];
+    pGIF->aFrames[2] = NULL;
   }
   // create new Frame struct + make a deep copy of pConfig.
   pNewFrame = malloc(sizeof(CGIF_Frame));

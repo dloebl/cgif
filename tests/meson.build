@@ -76,6 +76,13 @@ foreach t : tests_index + tests_rgb
 endforeach
 
 # malloc failure tests (compile source directly to intercept malloc)
+test_ealloc_exe = executable(
+  'test_ealloc',
+  'ealloc.c',
+  include_directories : ['../inc/'],
+)
+test('ealloc', test_ealloc_exe, priority : 0)
+
 test_ealloc_raw_exe = executable(
   'test_ealloc_raw',
   'ealloc_raw.c',
