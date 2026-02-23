@@ -108,38 +108,45 @@ int main(void) {
     malloc_count = 0;
 
     pGIF = cgif_rgb_newgif(&gConfig);
-    if(pGIF == NULL) {
-      if(malloc_count >= fail_after) {
-        continue; // expected: our injected malloc failure
+    if(malloc_count >= fail_after) {
+      if(pGIF != NULL) {
+        fprintf(stderr, "expected NULL from cgif_rgb_newgif (fail_after=%d)\n", fail_after);
+        return 1;
       }
+      continue;
+    }
+    if(pGIF == NULL) {
       fputs("unexpected NULL from cgif_rgb_newgif\n", stderr);
       return 1;
     }
 
     r = cgif_rgb_addframe(pGIF, &fConfig);
-    if(r != CGIF_OK) {
-      if(r == CGIF_EALLOC && malloc_count >= fail_after) {
-        cgif_rgb_close(pGIF);
-        continue; // expected: our injected malloc failure
+    if(malloc_count >= fail_after) {
+      if(r != CGIF_EALLOC) {
+        fprintf(stderr, "expected CGIF_EALLOC from cgif_rgb_addframe, got: %d\n", r);
+        return 1;
       }
+      cgif_rgb_close(pGIF);
+      continue;
+    }
+    if(r != CGIF_OK) {
       fprintf(stderr, "unexpected error from cgif_rgb_addframe: %d\n", r);
       return 1;
     }
 
     r = cgif_rgb_close(pGIF);
-    if(malloc_count < fail_after) {
-      // all mallocs succeeded without hitting our failure point -- done
-      if(r != CGIF_OK) {
-        fprintf(stderr, "unexpected error from cgif_rgb_close: %d\n", r);
+    if(malloc_count >= fail_after) {
+      if(r != CGIF_EALLOC) {
+        fprintf(stderr, "expected CGIF_EALLOC from cgif_rgb_close, got: %d (fail_after=%d)\n", r, fail_after);
         return 1;
       }
-      break;
+      continue;
     }
-    // our injected failure was hit during close (e.g. LZW encoding)
-    if(r != CGIF_EALLOC) {
-      fprintf(stderr, "expected CGIF_EALLOC from cgif_rgb_close, got: %d (fail_after=%d)\n", r, fail_after);
+    if(r != CGIF_OK) {
+      fprintf(stderr, "unexpected error from cgif_rgb_close: %d\n", r);
       return 1;
     }
+    break;
   }
 
   return 0;
