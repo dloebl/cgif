@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -449,7 +450,7 @@ static colHashTable* get_color_histogram(const uint8_t* pImageDataRGB, uint32_t 
   *pHasAlpha = 0;                                           // assume no alpha channel until it is found
   const uint8_t sizePixel = fmtChan;                        // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
   for(uint32_t i = 0; i < numPixel; ++i) {
-    uint32_t h = col_hash_collision_count(&pImageDataRGB[sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan, &cntCollision);
+    uint32_t h = col_hash_collision_count(&pImageDataRGB[(size_t)sizePixel * i], colhash->hashTable, colhash->indexUsed, colhash->tableSize, fmtChan, &cntCollision);
     if(h == -1) { // -1 means that the user has set a user-defined transparency (alpha channel)
       *pHasAlpha = 1;
       continue; // do not take this pixel into account (e.g. alpha channel present)
@@ -490,8 +491,8 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
     uint32_t* pFrequDense = hash_to_dense(colhash, fmtChan);
     treeNode* root        = create_decision_tree(colhash->pPalette, pFrequDense, pPalette256, colhash->cnt, colMax, depthMax); // create decision tree (dynamic, splits along rgb-dimension with highest variance)
     free(pFrequDense);
-    float* pImageDataRGBfloat = malloc(fmtChan * numPixel * sizeof(float)); // TBD fmtChan + only when hasAlpha
-    for(uint32_t i = 0; i < fmtChan * numPixel; ++i){
+    float* pImageDataRGBfloat = malloc((size_t)fmtChan * numPixel * sizeof(float)); // TBD fmtChan + only when hasAlpha
+    for(size_t i = 0; i < (size_t)fmtChan * numPixel; ++i){
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
     uint8_t transIndex = colMax;
@@ -557,8 +558,13 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
     pGIF->curResult = CGIF_ERROR;
     return CGIF_ERROR;
   }
-  pNewBef = malloc(pConfig->fmtChan * MULU16(imageWidth, imageHeight));
-  memcpy(pNewBef, pConfig->pImageData, pConfig->fmtChan * MULU16(imageWidth, imageHeight));
+  // guard against integer overflow in fmtChan * numPixel
+  if(numPixel > SIZE_MAX / pConfig->fmtChan) {
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
+  pNewBef = malloc((size_t)pConfig->fmtChan * MULU16(imageWidth, imageHeight));
+  memcpy(pNewBef, pConfig->pImageData, (size_t)pConfig->fmtChan * MULU16(imageWidth, imageHeight));
   fConfig.pLocalPalette = aPalette;
   fConfig.pImageData    = malloc(pGIF->config.width * (uint32_t)pGIF->config.height);
   fConfig.delay         = pConfig->delay;
