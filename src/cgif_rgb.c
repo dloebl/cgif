@@ -473,7 +473,7 @@ static colHashTable* get_color_histogram(const uint8_t* pImageDataRGB, uint32_t 
 }
 
 /* quantize the image using the color histogram */
-static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t width, cgif_chan_fmt fmtChan, uint8_t* pImageData, uint8_t* pPalette256, uint8_t depthMax, uint8_t dithering, int hasAlpha, uint8_t* pBef, cgif_chan_fmt befFmtChan) {
+static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImageDataRGB, uint32_t numPixel, uint32_t width, cgif_chan_fmt fmtChan, uint8_t* pImageData, uint8_t* pPalette256, uint8_t depthMax, uint8_t dithering, int hasAlpha, uint8_t* pBef, cgif_chan_fmt befFmtChan, cgif_result* pResult) {
   // pImageDataRGB: image in RGB format
   // numPixel: number of pixels of input image
   // width: width of the image (needed for dithering)
@@ -484,14 +484,32 @@ static uint32_t quantize_and_dither(colHashTable* colhash, const uint8_t* pImage
   // dithering: 0 (no dithering), 1: Floyd-Steinberg dithering, else: Sierra dithering
   // hasAlpha: alpha channel present 1, 0 otheriwse
   // pBef, befFmtChan
+  *pResult = CGIF_OK;
   const uint8_t sizePixel = fmtChan; // number of bytes for one pixel (e.g. 3 for RGB, 4 for RGBa)
   const uint16_t colMax = (1uL << depthMax) - 1; // maximum number of colors (-1 to leave space for transparency), disadvantage (TBD): quantization for static image with 256 colors and no alpha channel unnecessary
   if(colhash->cnt > colMax) { // color-quantization is needed
     uint32_t* pFrequDense = hash_to_dense(colhash, fmtChan);
     treeNode* root        = create_decision_tree(colhash->pPalette, pFrequDense, pPalette256, colhash->cnt, colMax, depthMax); // create decision tree (dynamic, splits along rgb-dimension with highest variance)
     free(pFrequDense);
-    float* pImageDataRGBfloat = malloc(fmtChan * numPixel * sizeof(float)); // TBD fmtChan + only when hasAlpha
-    for(uint32_t i = 0; i < fmtChan * numPixel; ++i){
+    size_t numValues = (size_t)fmtChan;
+    if(numPixel != 0 && numValues > (SIZE_MAX / (size_t)numPixel)) {
+      free_decision_tree(root);
+      *pResult = CGIF_EALLOC;
+      return 0;
+    }
+    numValues *= (size_t)numPixel;
+    if(numValues > (SIZE_MAX / sizeof(float))) {
+      free_decision_tree(root);
+      *pResult = CGIF_EALLOC;
+      return 0;
+    }
+    float* pImageDataRGBfloat = malloc(numValues * sizeof(float)); // TBD fmtChan + only when hasAlpha
+    if(pImageDataRGBfloat == NULL) {
+      free_decision_tree(root);
+      *pResult = CGIF_EALLOC;
+      return 0;
+    }
+    for(size_t i = 0; i < numValues; ++i){
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
     uint8_t transIndex = colMax;
@@ -546,7 +564,8 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
   uint8_t* pNewBef;
   const uint16_t   imageWidth  = pGIF->config.width;
   const uint16_t   imageHeight = pGIF->config.height;
-  const uint32_t   numPixel    = MULU16(imageWidth, imageHeight);
+  const uint32_t   pixelCount  = MULU16(imageWidth, imageHeight);
+  const uint32_t   numPixel    = pixelCount;
   int              hasAlpha;
   // check for previous errors
   if(pGIF->curResult != CGIF_OK && pGIF->curResult != CGIF_PENDING) {
@@ -557,10 +576,28 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
     pGIF->curResult = CGIF_ERROR;
     return CGIF_ERROR;
   }
-  pNewBef = malloc(pConfig->fmtChan * MULU16(imageWidth, imageHeight));
-  memcpy(pNewBef, pConfig->pImageData, pConfig->fmtChan * MULU16(imageWidth, imageHeight));
+  size_t totalBytes = (size_t)pConfig->fmtChan * (size_t)pixelCount;
+  if(pixelCount != 0 && totalBytes / (size_t)pixelCount != (size_t)pConfig->fmtChan) {
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
+  if(totalBytes > UINT32_MAX) {
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
+  pNewBef = malloc(totalBytes);
+  if(pNewBef == NULL) {
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
+  memcpy(pNewBef, pConfig->pImageData, totalBytes);
   fConfig.pLocalPalette = aPalette;
   fConfig.pImageData    = malloc(pGIF->config.width * (uint32_t)pGIF->config.height);
+  if(fConfig.pImageData == NULL) {
+    free(pNewBef);
+    pGIF->curResult = CGIF_EALLOC;
+    return CGIF_EALLOC;
+  }
   fConfig.delay         = pConfig->delay;
   fConfig.attrFlags     = CGIF_FRAME_ATTR_USE_LOCAL_TABLE;
   if(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_INTERLACED) {
@@ -569,8 +606,15 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
 
   colHashTable* colhash = get_color_histogram(pConfig->pImageData, numPixel, pConfig->fmtChan, &hasAlpha);
   const uint8_t bDither = !(pConfig->attrFlags & CGIF_RGB_FRAME_ATTR_NO_DITHERING);
-  const int sizeLCT = quantize_and_dither(colhash, pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, bDither, hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan);
+  cgif_result quantResult = CGIF_OK;
+  const int sizeLCT = quantize_and_dither(colhash, pConfig->pImageData, numPixel, pGIF->config.width, pConfig->fmtChan, fConfig.pImageData, aPalette, 8, bDither, hasAlpha, pGIF->pBefImageData, pGIF->befFmtChan, &quantResult);
   free_col_hash_table(colhash);
+  if(quantResult != CGIF_OK) {
+    free(pNewBef);
+    free(fConfig.pImageData);
+    pGIF->curResult = quantResult;
+    return quantResult;
+  }
 
   fConfig.numLocalPaletteEntries = sizeLCT;
   if(hasAlpha) {
