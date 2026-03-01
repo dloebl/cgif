@@ -330,7 +330,19 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   // where N = max dictionary resets = numPixel / (MAX_DICT_LEN - initDictLen - 2)
   entriesPerCycle = MAX_DICT_LEN - initDictLen - 2; // maximum added number of dictionary entries per cycle: -2 to account for start and end code
   maxResets = numPixel / entriesPerCycle;
-  pContext->pLZWData   = malloc(sizeof(uint16_t) * ((size_t)numPixel + 2 + maxResets));
+  /* Prevent overflow in addition */
+  if ((size_t)numPixel > SIZE_MAX - 2 - (size_t)maxResets) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
+  /* Safe addition */
+  size_t total_entries = (size_t)numPixel + 2 + (size_t)maxResets;
+  /* Prevent overflow in multiplication */
+  if (total_entries > SIZE_MAX / sizeof(uint16_t)) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
+  pContext->pLZWData = malloc(total_entries * sizeof(uint16_t));
   if(pContext->pLZWData == NULL) {
     r = CGIF_EALLOC;
     goto LZWGENERATE_Cleanup;
