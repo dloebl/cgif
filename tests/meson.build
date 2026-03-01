@@ -90,6 +90,13 @@ test_ealloc_raw_exe = executable(
 )
 test('ealloc_raw', test_ealloc_raw_exe, priority : 0)
 
+test_lzw_alloc_overflow_exe = executable(
+  'test_lzw_alloc_overflow',
+  'lzw_alloc_overflow.c',
+  include_directories : ['../inc/'],
+)
+test('lzw_alloc_overflow', test_lzw_alloc_overflow_exe, priority : 0)
+
 sha256sumc = find_program('scripts/sha256sum.py')
 # get the ordering right:
 # md5sum check on output GIFs should be run once all of the above tests are done.
