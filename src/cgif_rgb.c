@@ -212,7 +212,11 @@ static void get_mean(const uint8_t* pPalette, const uint32_t* frequ, uint32_t id
     }
   }
   for(dim = 0; dim < 3; ++dim) {
-    mean[dim] = m[dim] / sum[dim];
+    if (sum[dim] > 0) { // Fix: Prevent Division by Zero on zero-variance/empty inputs
+      mean[dim] = m[dim] / sum[dim];
+    } else {
+      mean[dim] = 0;
+    }
   }
 }
 
@@ -235,7 +239,11 @@ static void get_variance(const uint8_t* pPalette, const uint32_t* frequ, uint32_
     }
   }
   for(dim = 0; dim < 3; ++dim) {
-    var[dim] = v[dim] / sum[dim];
+    if (sum[dim] > 0) { // Fix: Prevent Division by Zero on zero-variance/empty inputs
+      var[dim] = v[dim] / sum[dim];
+    } else {
+      var[dim] = 0;
+    }
   }
 }
 
@@ -268,8 +276,8 @@ static void crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t
     i = parent->idxMin; // start of block minimum
     k = parent->idxMax; // start at block maximum
     while(i < k) { // split parent node in two blocks (like one step in qsort)
-      for(; pPalette[3 * i + parent->cutDim] <= parent->mean[parent->cutDim]; ++i); // && i<parent->idxMax not needed (other condition is false when i==parent>idxMax since there must be at most 1 element above mean)
-      for(; pPalette[3 * k + parent->cutDim] > parent->mean[parent->cutDim];  --k); // && k>parent->idxMin not needed (other condition is false when k==parent>idxMin since there must be at most 1 element below mean)
+      for(; i <= parent->idxMax && pPalette[3 * i + parent->cutDim] <= parent->mean[parent->cutDim]; ++i); // Fix: Re-introduced bounds check `i <= parent->idxMax` to prevent heap over-read on zero-variance partitions
+      for(; k > parent->idxMin && pPalette[3 * k + parent->cutDim] > parent->mean[parent->cutDim];  --k); // Fix: Re-introduced bounds check `k > parent->idxMin` to prevent heap over-read on zero-variance partitions
       if(k > i) {
         memcpy(saveBlk, &(pPalette[3 * i]), 3);
         memcpy(&(pPalette[3 * i]), &(pPalette[3 * k]), 3); // swap RGB-blocks in pPalette
