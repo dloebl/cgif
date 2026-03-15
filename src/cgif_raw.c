@@ -330,7 +330,19 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   // where N = max dictionary resets = numPixel / (MAX_DICT_LEN - initDictLen - 2)
   entriesPerCycle = MAX_DICT_LEN - initDictLen - 2; // maximum added number of dictionary entries per cycle: -2 to account for start and end code
   maxResets = numPixel / entriesPerCycle;
-  pContext->pLZWData   = malloc(sizeof(uint16_t) * ((size_t)numPixel + 2 + maxResets));
+  /* Prevent overflow in addition */
+  if ((size_t)numPixel > SIZE_MAX - 2 - (size_t)maxResets) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
+  /* Safe addition */
+  size_t total_entries = (size_t)numPixel + 2 + (size_t)maxResets;
+  /* Prevent overflow in multiplication */
+  if (total_entries > SIZE_MAX / sizeof(uint16_t)) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
+  pContext->pLZWData = malloc(total_entries * sizeof(uint16_t));
   if(pContext->pLZWData == NULL) {
     r = CGIF_EALLOC;
     goto LZWGENERATE_Cleanup;
@@ -347,8 +359,8 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   // pack the generated LZW data into blocks of 255 bytes
   uint8_t *byteList; // lzw-data packed in byte-list
   uint8_t *byteListBlock; // lzw-data packed in byte-list with 255-block structure
-  uint64_t MaxByteListLen = MAX_CODE_LEN * lzwPos / 8ull + 2ull + 1ull; // conservative upper bound
-  uint64_t MaxByteListBlockLen = MAX_CODE_LEN * lzwPos * (BLOCK_SIZE + 1ull) / 8ull / BLOCK_SIZE + 2ull + 1ull +1ull; // conservative upper bound
+  uint64_t MaxByteListLen = (uint64_t)MAX_CODE_LEN * lzwPos / 8 + 2 + 1; // conservative upper bound
+  uint64_t MaxByteListBlockLen = (uint64_t)MAX_CODE_LEN * lzwPos * (BLOCK_SIZE + 1) / 8 / BLOCK_SIZE + 2 + 1 + 1; // conservative upper bound
   byteList      = malloc(MaxByteListLen);
   byteListBlock = malloc(MaxByteListBlockLen);
   if(byteList == NULL || byteListBlock == NULL) {
