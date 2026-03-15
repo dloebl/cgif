@@ -70,14 +70,14 @@ static void initImageData(uint8_t* p, int numPixels) {
     p[3 * i + 1] = 0;
     p[3 * i + 2] = i;
   }
+
   // 32nd pixel: (8,0,21) -- hashes to slot 0 (8*65536+21 = 524309 = tableSize),
   // causing 31 collisions which triggers resize_col_hash_table
-  if(i < numPixels) {
-    p[3 * i + 0] = 8;
-    p[3 * i + 1] = 0;
-    p[3 * i + 2] = 21;
-    ++i;
-  }
+  p[3 * i + 0] = 8;
+  p[3 * i + 1] = 0;
+  p[3 * i + 2] = 21;
+  ++i;
+
   // remaining pixels: unique colors starting from (31,0,0)
   for(int c = 31; i < numPixels; ++i, ++c) {
     p[3 * i + 0] = (c >> 0) & 0xFF;
