@@ -94,18 +94,12 @@ static int processInput(ByteStream* pStream) {
   CGIF*            pGIF;
   size_t           sizeImageData;
   int              r;
-  int              numFrames;
 
   r = read_gifconfig(pStream, &gconfig);
   if(!r) {
     return -1;
   }
   sizeImageData    = (uint32_t)gconfig.width * (uint32_t)gconfig.height;
-  // limit dimensions of GIF to be created
-  if(sizeImageData > (10000 * 10000)) {
-    free(gconfig.pGlobalPalette);
-    return -1;
-  }
   gconfig.pWriteFn = writecb; // discard output
   pGIF             = cgif_newgif(&gconfig);
   free(gconfig.pGlobalPalette);
@@ -113,16 +107,10 @@ static int processInput(ByteStream* pStream) {
     return -1;
   }
   r = read_frameconfig(pStream, &fconfig, sizeImageData);
-  numFrames = 1;
   while(r) {
     cgif_addframe(pGIF, &fconfig);
     free(fconfig.pImageData);
     free(fconfig.pLocalPalette);
-    if(numFrames >= 16) {
-      // limit number of frames to avoid timeouts: 16 should be more than enough
-      break;
-    }
-    numFrames++;
     r = read_frameconfig(pStream, &fconfig, sizeImageData);
   }
   r = cgif_close(pGIF);
