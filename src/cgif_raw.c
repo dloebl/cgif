@@ -330,7 +330,14 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   // where N = max dictionary resets = numPixel / (MAX_DICT_LEN - initDictLen - 2)
   entriesPerCycle = MAX_DICT_LEN - initDictLen - 2; // maximum added number of dictionary entries per cycle: -2 to account for start and end code
   maxResets = numPixel / entriesPerCycle;
-  pContext->pLZWData   = malloc(sizeof(uint16_t) * ((size_t)numPixel + 2 + maxResets));
+  
+  // check for integer overflow in dictArraySize calculation and malloc
+  if (numPixel > (SIZE_MAX - 2 - maxResets) || ((size_t)numPixel + 2 + maxResets) > (SIZE_MAX / sizeof(uint16_t))) {
+    r = CGIF_EALLOC;
+    goto LZWGENERATE_Cleanup;
+  }
+  const size_t dictArraySize = (size_t)numPixel + 2 + maxResets;
+  pContext->pLZWData   = malloc(sizeof(uint16_t) * dictArraySize);
   if(pContext->pLZWData == NULL) {
     r = CGIF_EALLOC;
     goto LZWGENERATE_Cleanup;
@@ -454,6 +461,12 @@ CGIFRaw* cgif_raw_newgif(const CGIFRaw_Config* pConfig) {
   uint8_t  aHeader[SIZE_MAIN_HEADER];
   CGIFRaw* pGIF;
   int      rWrite;
+
+  // width or height cannot be zero
+  if(!pConfig->width || !pConfig->height) {
+    return NULL;
+  }
+
   // check for invalid GCT size
   if(pConfig->sizeGCT > 256) {
     return NULL; // invalid GCT size
@@ -503,6 +516,12 @@ cgif_result cgif_raw_addframe(CGIFRaw* pGIF, const CGIFRaw_FrameConfig* pConfig)
   LZWResult  encResult;
   int        r, rWrite;
   const int  useLCT = pConfig->sizeLCT; // LCT stands for "local color table"
+
+  // width or height cannot be zero
+  if(!pConfig->width || !pConfig->height) {
+    pGIF->curResult = CGIF_ERROR;
+    return pGIF->curResult;
+  }
   const int  isInterlaced = (pConfig->attrFlags & CGIF_RAW_FRAME_ATTR_INTERLACED) ? 1 : 0;
   uint16_t   numEffColors; // number of effective colors
   uint16_t   initDictLen;
