@@ -542,6 +542,11 @@ static int quantize_and_dither(colHashTable* colhash, const uint8_t* pImageDataR
     if(root == NULL) {
       return -1;
     }
+    // check for integer overflow in malloc
+    if (numPixel > (SIZE_MAX / (fmtChan * sizeof(float)))) {
+      free_decision_tree(root);
+      return -1;
+    }
     float* pImageDataRGBfloat = malloc(fmtChan * numPixel * sizeof(float)); // TBD fmtChan + only when hasAlpha
     if(pImageDataRGBfloat == NULL) {
       free_decision_tree(root);
