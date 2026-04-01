@@ -98,6 +98,14 @@ test_ealloc_rgb_exe = executable(
 )
 test('ealloc_rgb', test_ealloc_rgb_exe, priority : 0)
 
+test_rgb_overflow_trigger_exe = executable(
+  'test_rgb_overflow_trigger',
+  'rgb_overflow_trigger.c',
+  dependencies : [libcgif_dep],
+  include_directories : ['../inc/'],
+)
+test('rgb_overflow_trigger', test_rgb_overflow_trigger_exe, priority : 0)
+
 sha256sumc = find_program('scripts/sha256sum.py')
 # get the ordering right:
 # md5sum check on output GIFs should be run once all of the above tests are done.

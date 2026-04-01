@@ -542,12 +542,17 @@ static int quantize_and_dither(colHashTable* colhash, const uint8_t* pImageDataR
     if(root == NULL) {
       return -1;
     }
-    float* pImageDataRGBfloat = malloc(fmtChan * numPixel * sizeof(float)); // TBD fmtChan + only when hasAlpha
+    size_t numValues = (size_t)fmtChan * numPixel;
+    if(numPixel != 0 && numValues / numPixel != fmtChan) {
+      free_decision_tree(root);
+      return -1;
+    }
+    float* pImageDataRGBfloat = malloc(numValues * sizeof(float)); // TBD fmtChan + only when hasAlpha
     if(pImageDataRGBfloat == NULL) {
       free_decision_tree(root);
       return -1;
     }
-    for(uint32_t i = 0; i < fmtChan * numPixel; ++i){
+    for(size_t i = 0; i < numValues; ++i){
       pImageDataRGBfloat[i] = pImageDataRGB[i];
     }
     uint8_t transIndex = colMax;
@@ -616,12 +621,17 @@ cgif_result cgif_rgb_addframe(CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig)
     pGIF->curResult = CGIF_ERROR;
     return CGIF_ERROR;
   }
-  pNewBef = malloc(pConfig->fmtChan * MULU16(imageWidth, imageHeight));
+  size_t totalBytes = (size_t)pConfig->fmtChan * numPixel;
+  if(numPixel != 0 && totalBytes / numPixel != pConfig->fmtChan) {
+    pGIF->curResult = CGIF_EALLOC;
+    return pGIF->curResult;
+  }
+  pNewBef = malloc(totalBytes);
   if(pNewBef == NULL) {
     pGIF->curResult = CGIF_EALLOC;
     return pGIF->curResult;
   }
-  memcpy(pNewBef, pConfig->pImageData, pConfig->fmtChan * MULU16(imageWidth, imageHeight));
+  memcpy(pNewBef, pConfig->pImageData, totalBytes);
   fConfig.pLocalPalette = aPalette;
   fConfig.pImageData    = malloc(pGIF->config.width * (uint32_t)pGIF->config.height);
   if(fConfig.pImageData == NULL) {
