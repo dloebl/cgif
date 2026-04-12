@@ -28,6 +28,7 @@ tests_index = [
   { 'name' : 'has_transparency',                   'seed_should_fail' : false},
   { 'name' : 'has_transparency_2',                 'seed_should_fail' : false},
   { 'name' : 'local_transp',                       'seed_should_fail' : false},
+  { 'name' : 'lzw_size_overflow',                  'seed_should_fail' : false},
   { 'name' : 'max_color_table_test',               'seed_should_fail' : false},
   { 'name' : 'min_color_table_test',               'seed_should_fail' : false},
   { 'name' : 'min_size',                           'seed_should_fail' : false},
