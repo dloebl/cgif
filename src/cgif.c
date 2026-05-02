@@ -480,7 +480,7 @@ static void copyFrameConfig(CGIF_FrameConfig* pDest, CGIF_FrameConfig* pSrc) {
 int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
   CGIF_Frame* pNewFrame;
   int         hasAlpha, hasSetTransp;
-  int         i;
+  uint32_t    i;
   cgif_result r;
 
   // check for previous errors
@@ -518,7 +518,7 @@ int cgif_addframe(CGIF* pGIF, CGIF_FrameConfig* pConfig) {
           sameFrame = 0;
         }
       } else {
-        for(i = 0; i < pGIF->config.width * pGIF->config.height; i++) {
+        for(i = 0; i < MULU16(pGIF->config.width, pGIF->config.height); i++) {
           if(cmpPixel(pGIF, pConfig, &pGIF->aFrames[pGIF->iHEAD]->config, pConfig->pImageData[i], pGIF->aFrames[pGIF->iHEAD]->config.pImageData[i])) {
             sameFrame = 0;
             break;

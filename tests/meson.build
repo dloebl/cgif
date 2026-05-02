@@ -90,12 +90,13 @@ test_ealloc_raw_exe = executable(
 )
 test('ealloc_raw', test_ealloc_raw_exe, priority : 0)
 
-test_lzw_alloc_overflow_exe = executable(
-  'test_lzw_alloc_overflow',
-  'lzw_alloc_overflow.c',
+test_ealloc_rgb_exe = executable(
+  'test_ealloc_rgb',
+  'ealloc_rgb.c',
+  dependencies : [m_dep],
   include_directories : ['../inc/'],
 )
-test('lzw_alloc_overflow', test_lzw_alloc_overflow_exe, priority : 0)
+test('ealloc_rgb', test_ealloc_rgb_exe, priority : 0)
 
 sha256sumc = find_program('scripts/sha256sum.py')
 # get the ordering right:
