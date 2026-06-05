@@ -295,8 +295,10 @@ static int crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t*
     i = parent->idxMin; // start of block minimum
     k = parent->idxMax; // start at block maximum
     while(i < k) { // split parent node in two blocks (like one step in qsort)
-      for(; pPalette[3 * i + parent->cutDim] <= parent->mean[parent->cutDim]; ++i); // && i<parent->idxMax not needed (other condition is false when i==parent>idxMax since there must be at most 1 element above mean)
-      for(; pPalette[3 * k + parent->cutDim] > parent->mean[parent->cutDim];  --k); // && k>parent->idxMin not needed (other condition is false when k==parent>idxMin since there must be at most 1 element below mean)
+      // mean is a (rounded) float, so it can land on or outside the min/max color along
+      // cutDim. keep both scans inside [idxMin, idxMax] to avoid running past the node.
+      for(; i < parent->idxMax && pPalette[3 * i + parent->cutDim] <= parent->mean[parent->cutDim]; ++i);
+      for(; k > parent->idxMin && pPalette[3 * k + parent->cutDim] > parent->mean[parent->cutDim];  --k);
       if(k > i) {
         memcpy(saveBlk, &(pPalette[3 * i]), 3);
         memcpy(&(pPalette[3 * i]), &(pPalette[3 * k]), 3); // swap RGB-blocks in pPalette
@@ -305,6 +307,11 @@ static int crawl_decision_tree(treeNode* root, uint16_t* numLeaveNodes, uint8_t*
         frequ[k] = frequ[i]; // swap also the frequency
         frequ[i] = saveNum;  // sawp also the frequency
       }
+    }
+    // if all colors ended up above the mean, force one into the first block so neither
+    // child node gets an empty range (empty range -> div-by-zero mean -> NaN).
+    if(i <= parent->idxMin) {
+      i = parent->idxMin + 1;
     }
     parent->isLeave = 0; // parent is no leave node anymore when children added
     (*numLeaveNodes)--;  // decrease counter since parent is removed as a leave node
