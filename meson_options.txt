@@ -19,6 +19,16 @@ option(
   description : 'build tests',
 )
 
+# EXPERIMENTAL: the RGB API is experimental and disabled by default.
+# When disabled, the public library does not export the RGB API and the
+# cgif_rgb.h header is not installed. The tests always build the RGB API.
+option(
+  'experimental_rgb',
+  type : 'boolean',
+  value : false,
+  description : 'build the experimental RGB API into the library (EXPERIMENTAL, API subject to change)',
+)
+
 # for debugging purposes
 option(
   'install_examples',

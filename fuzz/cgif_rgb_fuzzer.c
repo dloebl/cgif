@@ -1,4 +1,5 @@
 #include <cgif.h>
+#include <cgif_rgb.h>
 
 #include <stddef.h>
 #include <stdint.h>

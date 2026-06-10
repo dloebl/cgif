@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "cgif.h"
+#include "cgif_rgb.h"
 
 #define MULU16(a, b) (((uint32_t)a) * ((uint32_t)b)) // helper macro to correctly multiply two U16's without default signed int promotion
 #define MAX(a,b) (a >= b ? a : b)

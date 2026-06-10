@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "cgif.h"
+#include "cgif_rgb.h"
 
 #define WIDTH  256
 #define HEIGHT 10

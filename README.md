@@ -40,10 +40,13 @@ int  cgif_addframe  (CGIF* pGIF, CGIF_FrameConfig* pConfig);  // adds a frame to
 int  cgif_close     (CGIF* pGIF);                             // close the created file and free memory
 
 // The user needs only these functions to create a GIF image from RGB data:
+// (EXPERIMENTAL: declared in the separate header "cgif_rgb.h")
 CGIFrgb*    cgif_rgb_newgif    (const CGIFrgb_Config* pConfig);
 cgif_result cgif_rgb_addframe  (CGIFrgb* pGIF, const CGIFrgb_FrameConfig* pConfig);
 cgif_result cgif_rgb_close     (CGIFrgb* pGIF);
 ```
+
+**Note:** The RGB API is **experimental** and subject to change. It is **disabled by default** and lives in its own header ```inc/cgif_rgb.h``` (include it via ```#include "cgif_rgb.h"```). To compile it into the library and install the header, configure the build with ```-Dexperimental_rgb=true```. The regular header ```inc/cgif.h``` no longer declares the RGB API.
 
 With our encoder you can create animated or static GIFs, you can or cannot use certain optimizations, and so on. You can switch between all these different options easily using the two attributes ```attrFlags``` and ```genFlags``` in the configurations ```CGIF_Config``` and ```CGIF_FrameConfig``` (or their RGB counterparts). These attributes are of type ```uint32_t``` and bundle yes/no-options with a bit-wise logic. So far only a few of the 32 bits are used leaving space to include further functionalities ensuring backward compatibility. We provide the following flag settings which can be combined by bit-wise or-operations:
 ```C
