@@ -21,19 +21,20 @@
  * The fix casts MAX_CODE_LEN to uint64_t so the multiplication is done in
  * 64-bit arithmetic.
  *
- * This test encodes 361 million pseudo-random pixels (19000 x 19000 with
- * 256 colours).  Random noise defeats LZW compression, giving
- * lzwPos >= numPixel > 358 M and triggering the overflow.
+ * This test encodes 400 million pseudo-random pixels (20000 x 20000 with
+ * 256 colours).  Random noise mostly defeats LZW compression, so the code
+ * count lzwPos stays close to numPixel (~389 M here), well above the
+ * UINT32_MAX / 12 (~358 M) threshold where the 32-bit product wraps.
  *
  * Expected results:
  *   main (unfixed):  crash (SIGSEGV) due to heap buffer overflow
  *   fixed:           CGIF_OK or CGIF_EALLOC (clean exit)
  *
- * NOTE: peak memory consumption is approximately 2.5 GB.
+ * NOTE: peak memory consumption is approximately 2.6 GB.
  */
 
-#define WIDTH  19000
-#define HEIGHT 19000
+#define WIDTH  20000
+#define HEIGHT 20000
 
 static uint64_t seed;
 
