@@ -26,7 +26,7 @@ typedef struct {
 typedef struct treeNode {
   struct treeNode* child0; // pointer to child-node (elements smaller or equal than mean)
   struct treeNode* child1; // pointer to child-node (elements larger than mean)
-  float mean[3];           // average of the colors
+  double mean[3];           // average of the colors
   uint32_t idxMin, idxMax; // minimum and maximum index referring to global palette
   uint8_t cutDim;          // dimension along which the cut (node split) is done
   uint8_t colIdx;          // color index (only meaningful for leave node)
@@ -43,9 +43,9 @@ typedef struct colHashTable {
   uint32_t  tableSize; // initial size of the hash table
 } colHashTable;
 
-static uint64_t argmax64(float* arry, uint64_t n){
+static uint64_t argmax64(double* arry, uint64_t n){
   uint64_t imax = 0;
-  float vmax = 0;
+  double vmax = 0;
 
   for(uint64_t i = 0; i < n; ++i) {
     if(arry[i] > vmax){
@@ -219,13 +219,13 @@ static uint32_t* hash_to_dense(colHashTable* colhash, cgif_chan_fmt fmtChan) {
 }
 
 /* get mean of color-cloud along all 3 dimensions (at least one color must be present, otherwise div 0 issue)*/
-static void get_mean(const uint8_t* pPalette, const uint32_t* frequ, uint32_t idxMin, uint32_t idxMax, float* mean){
+static void get_mean(const uint8_t* pPalette, const uint32_t* frequ, uint32_t idxMin, uint32_t idxMax, double* mean){
   // pPalette: RGB color palette
   // frequ: frequency of the colors (indexing as pPalette, no hashing)
   // idxMin, idxMax: palette range for which the mean is computed
   // mean: mean value along all three dimensions
-  float m[3]   = {0,0,0};
-  float sum[3] = {0,0,0};
+  double m[3]   = {0,0,0};
+  double sum[3] = {0,0,0};
   uint32_t i;
   uint8_t dim;
 
@@ -241,15 +241,15 @@ static void get_mean(const uint8_t* pPalette, const uint32_t* frequ, uint32_t id
 }
 
 /* get variance of color-cloud along all 3 dimensions*/
-static void get_variance(const uint8_t* pPalette, const uint32_t* frequ, uint32_t idxMin, uint32_t idxMax, float* var, float* mean){
+static void get_variance(const uint8_t* pPalette, const uint32_t* frequ, uint32_t idxMin, uint32_t idxMax, double* var, double* mean){
   // pPalette: RGB color palette
   // frequ: frequency of the colors (indexing as pPalette, no hashing)
   // idxMin, idxMax: palette range for which the variance is computed
   // var/mean: variance/mean value along all three dimensions (array with 3 entries)
   uint32_t i;
   uint8_t dim;
-  float v[3] = {0,0,0};
-  float sum[3] = {0,0,0};
+  double v[3] = {0,0,0};
+  double sum[3] = {0,0,0};
 
   get_mean(pPalette, frequ, idxMin, idxMax, mean);
   for(i = idxMin; i <= idxMax; ++i) {
@@ -264,7 +264,7 @@ static void get_variance(const uint8_t* pPalette, const uint32_t* frequ, uint32_
 }
 
 static treeNode* new_tree_node(uint8_t* pPalette, uint32_t* frequ, uint16_t* numLeaveNodes, uint32_t idxMin, uint32_t idxMax, uint8_t colIdx) {
-  float var[3];
+  double var[3];
 
   treeNode* node = malloc(sizeof(treeNode));
   if(node == NULL) {
@@ -326,9 +326,9 @@ static void get_palette_from_decision_tree(const treeNode* root, uint8_t* pPalet
     get_palette_from_decision_tree(root->child0, pPalette256);
     get_palette_from_decision_tree(root->child1, pPalette256);
   } else {
-    pPalette256[3 * root->colIdx]     = (uint8_t)roundf(root->mean[0]);
-    pPalette256[3 * root->colIdx + 1] = (uint8_t)roundf(root->mean[1]);
-    pPalette256[3 * root->colIdx + 2] = (uint8_t)roundf(root->mean[2]);
+    pPalette256[3 * root->colIdx]     = (uint8_t)round(root->mean[0]);
+    pPalette256[3 * root->colIdx + 1] = (uint8_t)round(root->mean[1]);
+    pPalette256[3 * root->colIdx + 2] = (uint8_t)round(root->mean[2]);
   }
 }
 
