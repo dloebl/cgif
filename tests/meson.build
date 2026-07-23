@@ -62,6 +62,7 @@ tests_rgb = [
   { 'name' : 'rgb_no_dithering',                   'seed_should_fail' : false},
   { 'name' : 'rgb_noise',                          'seed_should_fail' : false},
   { 'name' : 'rgb_noise_animated',                 'seed_should_fail' : false},
+  { 'name' : 'rgb_col_quant_float_issue',          'seed_should_fail' : false},
 ]
 
 foreach t : tests_index + tests_rgb
