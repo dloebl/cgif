@@ -6,6 +6,7 @@
 #include <math.h>
 
 #include "cgif.h"
+#include "cgif_rgb.h"
 #include "cgif_raw.h"
 
 /*

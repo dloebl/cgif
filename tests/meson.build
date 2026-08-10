@@ -65,12 +65,26 @@ tests_rgb = [
   { 'name' : 'rgb_col_quant_float_issue',          'seed_should_fail' : false},
 ]
 
-foreach t : tests_index + tests_rgb
+# indexed API tests link against the public library
+foreach t : tests_index
   name = t.get('name')
   test_exe = executable(
     'test_' + name,
     name + '.c',
     dependencies : [libcgif_dep],
+    include_directories : ['../inc/'],
+  )
+  test(name, test_exe, priority : 0)
+endforeach
+
+# RGB API tests always link against the internal RGB-enabled library so they
+# keep building even when the experimental RGB API is disabled in the public lib
+foreach t : tests_rgb
+  name = t.get('name')
+  test_exe = executable(
+    'test_' + name,
+    name + '.c',
+    dependencies : [libcgif_rgb_dep],
     include_directories : ['../inc/'],
   )
   test(name, test_exe, priority : 0)

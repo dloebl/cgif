@@ -41,7 +41,9 @@ src_rgb = ['cgif_fuzzer_standalone.c', 'cgif_rgb_fuzzer.c']
 exe_rgb = executable(
   'cgif_rgb_fuzzer_standalone',
   sources : src_rgb,
-  dependencies : [libcgif_dep],
+  # use the RGB-enabled internal library so this keeps building regardless of
+  # the 'experimental_rgb' option
+  dependencies : [libcgif_rgb_dep],
   include_directories : ['../inc'],
 )
 # test indexed seed corpus with standalone fuzzer and standalone file fuzzer

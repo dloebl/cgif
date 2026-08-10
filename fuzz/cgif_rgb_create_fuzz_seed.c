@@ -4,6 +4,7 @@
 */
 
 #include <cgif.h>
+#include <cgif_rgb.h>
 
 #include <stdio.h>
 #include <stdint.h>
