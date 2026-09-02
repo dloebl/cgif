@@ -349,8 +349,8 @@ static int LZW_GenerateStream(LZWResult* pResult, const uint32_t numPixel, const
   // pack the generated LZW data into blocks of 255 bytes
   uint8_t *byteList; // lzw-data packed in byte-list
   uint8_t *byteListBlock; // lzw-data packed in byte-list with 255-block structure
-  uint64_t MaxByteListLen = MAX_CODE_LEN * lzwPos / 8ull + 2ull + 1ull; // conservative upper bound
-  uint64_t MaxByteListBlockLen = MAX_CODE_LEN * lzwPos * (BLOCK_SIZE + 1ull) / 8ull / BLOCK_SIZE + 2ull + 1ull +1ull; // conservative upper bound
+  uint64_t MaxByteListLen = (uint64_t)MAX_CODE_LEN * lzwPos / 8ull + 2ull + 1ull; // conservative upper bound
+  uint64_t MaxByteListBlockLen = (uint64_t)MAX_CODE_LEN * lzwPos * (BLOCK_SIZE + 1ull) / 8ull / BLOCK_SIZE + 2ull + 1ull +1ull; // conservative upper bound
   byteList      = malloc(MaxByteListLen);
   byteListBlock = malloc(MaxByteListBlockLen);
   if(byteList == NULL || byteListBlock == NULL) {
