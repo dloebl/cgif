@@ -232,7 +232,7 @@ static void get_mean(const uint8_t* pPalette, const uint32_t* frequ, uint32_t id
   for(i = idxMin; i <= idxMax; ++i) {
     for(dim = 0; dim < 3; ++dim) {
       sum[dim] += frequ[i];
-      m[dim]   += frequ[i] * pPalette[3 * i + dim];
+      m[dim]   += (double)frequ[i] * pPalette[3 * i + dim];
     }
   }
   for(dim = 0; dim < 3; ++dim) {
